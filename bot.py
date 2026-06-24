@@ -289,10 +289,10 @@ def get_random_words(n=3):
     return " ".join(random.choices(all_words, k=min(n, 5))).upper()
 
 def _find_impact_font(size):
+    """Ищет шрифт — сначала Arial Bold (кириллица), потом системные"""
     font_paths = [
-        "impact.ttf", "Impact.ttf",
-        "/usr/share/fonts/truetype/impact/impact.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
+        "impact.ttf",
+        os.path.join(os.path.dirname(__file__), "impact.ttf"),
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
@@ -300,11 +300,11 @@ def _find_impact_font(size):
     ]
     for path in font_paths:
         try:
-            return ImageFont.truetype(path, size=size)
+            font = ImageFont.truetype(path, size=size)
+            return font
         except:
             continue
     return ImageFont.load_default()
-
 def _draw_meme_text(draw, text, img_w, img_h, position="bottom"):
     text = text.upper().strip()
     if not text:
