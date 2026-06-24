@@ -718,4 +718,4 @@ def handle_photo(message):
 
 # ─── Запуск ────────────────────────────────────────────────────────────────────
 log.info("Лолыч проснулся!")
-bot.polling(none_stop=True)ў
+bot.polling(none_stop=True)
