@@ -2,7 +2,6 @@ import telebot
 import markovify
 import random
 import threading
-import time
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -39,6 +38,8 @@ TRIGGERS = {
     "reply": 75,
     "photo_reply": 100,
     "voice": 250,
+    "mat": 75,
+    "mat_voice": 10,  # раз в N матов — голосовой ор
 }
 
 MAT = [
@@ -54,33 +55,6 @@ EMOJI = ["💀","🗿","😭","🤡","👀","🔥","😐","💅","🫡","🤨","
          "🫠","🤌","😈","🧌","🫃","🤯","💩","🙈","😵","🤪","👁️","🦴","🫀","🧠",
          "🤡","👺","💢","🔞","☠️","🤮","😬","🥴","👻","🫵","🤬"]
 
-ANECDOTES = [
-    "Купил мужик шляпу, а она ему как раз.",
-    "— Доктор, я буду жить?\n— А смысл?",
-    "Вчера было поздно, завтра будет рано, а сегодня некогда.",
-    "Оптимист — это тот, кто сдаёт анализы в пятницу вечером.",
-    "— Ты кто по жизни?\n— Я сглыпа.",
-    "Жизнь — боль, но я терпила.",
-    "Сказал «да» — теперь женат. Сказал «нет» — теперь уволен.",
-    "На работе платят деньги. Деньги можно обменять на еду. Еда даёт силы работать.",
-    "— Почему ты такой тупой?\n— Гены. И интернет.",
-    "Купил абонемент в спортзал. Два раза сходил. Больше не покупаю.",
-    "— Алло, это полиция?\n— Да.\n— А почему вы тогда не едете?\n— А мы уже тут.",
-]
-
-RHYMES = {
-    "ай": ["давай", "трамвай", "сарай", "лентяй", "урожай"],
-    "ой": ["герой", "горой", "тобой", "судьбой", "головой"],
-    "ать": ["мать", "спать", "послать", "сосать", "страдать"],
-    "еть": ["пиздеть", "сидеть", "глядеть", "балдеть", "хотеть"],
-    "ить": ["жить", "любить", "тупить", "ходить", "варить"],
-    "уй": ["хуй", "поцелуй", "танцуй", "воруй", "голосуй"],
-    "як": ["дурак", "пятак", "большак", "свояк", "рыбак"],
-    "ок": ["дружок", "пирожок", "утюжок", "прыжок", "кружок"],
-    "ак": ["дурак", "батрак", "бивак", "чужак", "рыбак"],
-    "ек": ["человек", "век", "снег", "бег", "оберег"],
-}
-
 # ─── Хранилище ─────────────────────────────────────────────────────────────────
 _cache = {}
 
@@ -91,7 +65,7 @@ def _load(key):
     if not os.path.exists(path):
         default = {} if key in ("users", "counter") else []
         if key == "counter":
-            default = {"msgs": 0, "reply": 0, "photo_reply": 0, "voice": 0}
+            default = {"msgs": 0, "reply": 0, "photo_reply": 0, "voice": 0, "mat": 0, "mat_voice": 0}
         _cache[key] = default
         return default
     with open(path, "r", encoding="utf-8") as f:
@@ -168,53 +142,61 @@ def generate_markov():
     model = _get_markov_model()
     if not model:
         return None
-    msgs = get_messages()
     result = model.make_sentence(tries=50, max_words=12)
     return result if result else None
 
-# ─── Абсурдный набор слов ──────────────────────────────────────────────────────
-def _chat_words(min_len=2):
+# ─── Слова чата ────────────────────────────────────────────────────────────────
+def _chat_words(min_len=2, last_n=300):
     msgs = get_messages()
     if not msgs:
         return []
     words = []
-    for m in msgs[-300:]:
-        words.extend(w.strip(".,!?:;\"'()") for w in m.split())
+    for m in msgs[-last_n:]:
+        words.extend(w.strip(".,!?:;\"'()«»") for w in m.split())
     return [w for w in words if len(w) > min_len]
 
 def absurd_word_salad(source_text="", length=None):
-    """Генерирует фразу длиной 8-12 слов"""
     if length is None:
         length = random.randint(8, 12)
-    
     pool = _chat_words()
     if source_text:
-        pool.extend(w.strip(".,!?:;\"'()") for w in source_text.split() if len(w) > 1)
-    
+        pool.extend(w.strip(".,!?:;\"'()«»") for w in source_text.split() if len(w) > 1)
     if not pool:
-        pool = MAT[:]
-    
-    result = []
-    while len(result) < length:
-        w = random.choice(pool)
-        result.append(w)
-    
-    if random.random() < 0.3:
-        result.append(random.choice(MAT))
-    
-    result = result[:length]
+        return random.choice(EMOJI)
+    result = [random.choice(pool) for _ in range(length)]
     text = " ".join(result)
-    
     if random.random() < 0.3:
         text = text.upper()
     if random.random() < 0.3:
         text += random.choice(["?", "!", "??", ""])
-    
     return text.strip()
+
+def random_reply_length():
+    lengths = list(range(1, 16))
+    weights = [16 - n for n in lengths]
+    return random.choices(lengths, weights=weights, k=1)[0]
+
+# ─── Цитата ────────────────────────────────────────────────────────────────────
+def random_quote_salad(length=None):
+    msgs = get_messages()
+    if not msgs:
+        return None
+    if length is None:
+        length = random.randint(6, 12)
+    words = []
+    attempts = 0
+    while len(words) < length and attempts < length * 5:
+        attempts += 1
+        msg = random.choice(msgs)
+        candidates = [w.strip(".,!?:;\"'()«»") for w in msg.split() if len(w) > 1]
+        if candidates:
+            words.append(random.choice(candidates))
+    if not words:
+        return None
+    return " ".join(words)
 
 # ─── Голосовые ─────────────────────────────────────────────────────────────────
 def generate_voice(text):
-    """Создаёт голосовое из текста"""
     try:
         tts = gTTS(text=text, lang="ru", slow=False)
         voice_io = io.BytesIO()
@@ -227,7 +209,6 @@ def generate_voice(text):
         return None
 
 def send_random_voice(bot_instance, chat_id, reply_to=None):
-    """Отправляет голосовое с абсурдным текстом из слов чата"""
     text = absurd_word_salad(length=random.randint(8, 12))
     voice = generate_voice(text)
     if voice:
@@ -241,91 +222,61 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
             log.error(f"send_random_voice error: {e}")
     return False
 
+def send_mat_voice(bot_instance, chat_id, reply_to=None):
+    """Орёт матом голосом — использует только маты из памяти"""
+    mat_words = [w for w in MAT]
+    text = " ".join(random.choices(mat_words, k=random.randint(3, 6))).upper()
+    voice = generate_voice(text)
+    if voice:
+        try:
+            if reply_to:
+                bot_instance.send_voice(chat_id, voice, reply_to_message_id=reply_to)
+            else:
+                bot_instance.send_voice(chat_id, voice)
+            return True
+        except Exception as e:
+            log.error(f"send_mat_voice error: {e}")
+    return False
+
 # ─── Микс сообщений ────────────────────────────────────────────────────────────
 def mix_messages():
-    """Склеивает половины двух случайных сообщений"""
     msgs = get_messages()
     if len(msgs) < 2:
         return absurd_word_salad()
-    
     msg1 = random.choice(msgs)
     msg2 = random.choice(msgs)
-    
     words1 = msg1.split()
     words2 = msg2.split()
-    
     if len(words1) < 2 or len(words2) < 2:
         return absurd_word_salad()
-    
     half1 = words1[:len(words1)//2]
     half2 = words2[len(words2)//2:]
-    
     mixed = " ".join(half1 + half2)
-    
-    # Обрезаем до 8-12 слов
     mixed_words = mixed.split()
     if len(mixed_words) > 12:
         mixed = " ".join(mixed_words[:12])
-    
-    if random.random() < 0.3:
-        mixed += " " + random.choice(MAT)
-    
     return mixed.strip()
 
 # ─── Стихи ─────────────────────────────────────────────────────────────────────
-def find_rhyme(word):
-    word = word.lower()
-    for ending, rhymes in RHYMES.items():
-        if word.endswith(ending):
-            return random.choice(rhymes)
-    return word
-
 def make_poem():
     model = _get_markov_model()
     words = _chat_words()
-    
     if not words:
         return absurd_word_salad()
-    
     lines = []
     for _ in range(random.randint(2, 4)):
         if model and random.random() < 0.5:
             line = model.make_short_sentence(50, tries=20)
         else:
             line = " ".join(random.choices(words, k=random.randint(3, 6)))
-        
         if line:
             words_in_line = line.split()
             if len(words_in_line) > 8:
                 line = " ".join(words_in_line[:8])
-            
-            last_word = words_in_line[-1].strip(".,!?:;\"'()")
-            if random.random() < 0.3:
-                rhyme = find_rhyme(last_word)
-                if rhyme != last_word:
-                    line = " ".join(words_in_line[:-1]) + " " + rhyme
             lines.append(line)
-    
     if len(lines) < 2:
         return absurd_word_salad()
-    
     return "\n".join(lines[:4])
-
-# ─── Оскорбления ───────────────────────────────────────────────────────────────
-def generate_insult(name=""):
-    adjectives = [
-        "конченый", "тупорылый", "бездарный", "унылый", "позорный",
-        "жалкий", "никчемный", "глупый", "бестолковый", "криворукий"
-    ]
-    nouns = [
-        "огузок", "огрызок", "пень", "баран", "индюк", "валенок",
-        "сапог", "чемодан", "кабачок", "огурец"
-    ]
-    
-    if name:
-        return f"{name} — {random.choice(adjectives)} {random.choice(nouns)}"
-    else:
-        return f"ты {random.choice(adjectives)} {random.choice(nouns)}"
 
 # ─── Мемы ──────────────────────────────────────────────────────────────────────
 def get_random_words(n=3):
@@ -337,52 +288,47 @@ def get_random_words(n=3):
         return "НУ И ДЕЛА БРАТАН"
     return " ".join(random.choices(all_words, k=min(n, 5))).upper()
 
-def _draw_meme_text(draw, text, img_w, img_h, position="bottom"):
-    # Ищем шрифт с кириллицей
-    font = None
+def _find_impact_font(size):
     font_paths = [
+        "impact.ttf", "Impact.ttf",
+        "/usr/share/fonts/truetype/impact/impact.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
         "DejaVuSans-Bold.ttf",
     ]
-    
     for path in font_paths:
         try:
-            font = ImageFont.truetype(path, size=int(img_h * 0.08))
-            break
+            return ImageFont.truetype(path, size=size)
         except:
             continue
-    
-    if font is None:
-        try:
-            font = ImageFont.truetype("impact.ttf", size=int(img_h * 0.1))
-        except:
-            font = ImageFont.load_default()
-    
-    # Ограничиваем текст до 5 слов для мема
-    words = text.split()[:5]
-    text = " ".join(words)
-    
-    lines = textwrap.wrap(text, width=12)
-    line_height = int(img_h * 0.14)
-    y = 10 if position == "top" else img_h - line_height * len(lines) - 15
-    
+    return ImageFont.load_default()
+
+def _draw_meme_text(draw, text, img_w, img_h, position="bottom"):
+    text = text.upper().strip()
+    if not text:
+        return
+    font_size = max(int(img_h * 0.10), 24)
+    font = _find_impact_font(font_size)
+    wrap_width = max(int(img_w / (font_size * 0.62)), 6)
+    lines = textwrap.wrap(text, width=wrap_width) or [text]
+    outline = max(int(font_size * 0.07), 2)
+    line_height = int(font_size * 1.15)
+    total_h = line_height * len(lines)
+    y = int(img_h * 0.02) if position == "top" else img_h - total_h - int(img_h * 0.03)
     for line in lines:
         try:
             bbox = draw.textbbox((0, 0), line, font=font)
             text_w = bbox[2] - bbox[0]
         except:
-            text_w = len(line) * int(img_w * 0.05)
-        
+            text_w = len(line) * int(font_size * 0.55)
         x = max(5, (img_w - text_w) // 2)
-        
-        # Чёрная обводка
-        for dx in (-2, 2):
-            for dy in (-2, 2):
+        for dx in range(-outline, outline + 1):
+            for dy in range(-outline, outline + 1):
+                if dx == 0 and dy == 0:
+                    continue
                 draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0))
-        
-        # Белый текст
         draw.text((x, y), line, font=font, fill=(255, 255, 255))
         y += line_height
 
@@ -402,14 +348,6 @@ def has_mat(text):
     t = text.lower()
     return any(m in t for m in MAT)
 
-def random_response(source_text=""):
-    roll = random.random()
-    if roll < 0.15:
-        return " ".join(random.choices(EMOJI, k=random.randint(1, 3)))
-    elif roll < 0.3:
-        return generate_insult()
-    return absurd_word_salad(source_text)
-
 # ─── Бот ───────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
 
@@ -419,42 +357,18 @@ bot = telebot.TeleBot(TOKEN)
 def cmd_start(message):
     commands = """
 🎭 *Лолыч-сглыпа к вашим услугам:*
-/who \[действие\] — выбрать виноватого
-/salad — абсурдный набор слов
 /mix — микс двух сообщений
 /poem — сгенерировать стих
 /meme — создать мем
-/imitate \[имя\] — спародировать
-/roast \[имя\] — смешное оскорбление
 /quote — случайная цитата
-/when \[вопрос\] — магический шар
-/anek — случайный анекдот
-/poll \[вопрос? вариант1, вариант2\] — опрос
 /voice — голосовое с абсурдом
 /clear — очистить память бота
 """
     bot.reply_to(message, commands, parse_mode="Markdown")
 
-@bot.message_handler(commands=["salad", "sglypa", "сглыпа"])
-def cmd_salad(message):
-    bot.send_message(message.chat.id, absurd_word_salad())
-
 @bot.message_handler(commands=["mix", "микс"])
 def cmd_mix(message):
     bot.send_message(message.chat.id, mix_messages())
-
-@bot.message_handler(commands=["who", "кто"])
-def cmd_who(message):
-    text = message.text
-    for cmd in ["/who", "/кто"]:
-        text = text.replace(cmd, "").strip()
-    text = text or "должен купить еду"
-    users = get_users()
-    if not users:
-        bot.send_message(message.chat.id, "не знаю никого ещё")
-        return
-    chosen = random.choice(list(users.values()))
-    bot.send_message(message.chat.id, f"{chosen['name']} {text}!")
 
 @bot.message_handler(commands=["poem", "стих", "стишок", "поэзия"])
 def cmd_poem(message):
@@ -479,92 +393,13 @@ def cmd_meme(message):
         log.error(f"cmd_meme error: {e}")
         bot.reply_to(message, "не смог сделать мем")
 
-@bot.message_handler(commands=["imitate", "имитировать"])
-def cmd_imitate(message):
-    args = message.text.split()
-    if len(args) < 2:
-        bot.reply_to(message, "напиши /imitate имя")
-        return
-    name = args[1].replace("@", "")
-    users = get_users()
-    found = next(
-        (uid for uid, data in users.items() if data["name"].lower() == name.lower()),
-        None
-    )
-    if not found:
-        bot.reply_to(message, "не знаю такого")
-        return
-    msgs = users[found]["messages"]
-    if len(msgs) < 5:
-        bot.reply_to(message, "мало сообщений от этого человека")
-        return
-    try:
-        model = markovify.Text(" ".join(msgs), state_size=1)
-        result = model.make_sentence(tries=50, max_words=12) or random.choice(msgs)
-    except:
-        result = " ".join(random.choice(msgs).split()[:12])
-    bot.reply_to(message, f"{users[found]['name']}: {result}")
-
-@bot.message_handler(commands=["roast", "обосрать"])
-def cmd_roast(message):
-    args = message.text.split()
-    name = " ".join(args[1:]).replace("@", "") if len(args) > 1 else ""
-    bot.reply_to(message, generate_insult(name))
-
 @bot.message_handler(commands=["quote", "цитата"])
 def cmd_quote(message):
-    msgs = get_messages()
-    if not msgs:
+    quote = random_quote_salad()
+    if not quote:
         bot.reply_to(message, "цитат пока нет")
         return
-    good_msgs = [m for m in msgs if len(m) > 20 and len(m) < 200]
-    if good_msgs:
-        quote = random.choice(good_msgs)
-        # Обрезаем до 12 слов
-        words = quote.split()[:12]
-        quote = " ".join(words)
-        bot.reply_to(message, f"💬 «{quote}»")
-    else:
-        bot.reply_to(message, " ".join(random.choice(msgs).split()[:12]))
-
-@bot.message_handler(commands=["when", "когда"])
-def cmd_when(message):
-    text = message.text
-    for cmd in ["/when", "/когда"]:
-        text = text.replace(cmd, "").strip()
-    answers = [
-        "никогда", "завтра", "через 5 минут", 
-        "когда рак на горе свистнет", "скоро",
-        "в следующей жизни", "после дождичка в четверг",
-        "когда хуй на крыше вырастет", "в 3024 году",
-    ]
-    if text:
-        bot.reply_to(message, f"{text} — *{random.choice(answers)}*!", parse_mode="Markdown")
-    else:
-        bot.reply_to(message, "Что когда? Напиши /when [вопрос]")
-
-@bot.message_handler(commands=["anek", "анек", "анекдот"])
-def cmd_anek(message):
-    bot.reply_to(message, random.choice(ANECDOTES))
-
-@bot.message_handler(commands=["poll", "опрос"])
-def cmd_poll(message):
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        bot.reply_to(message, "Напиши: /опрос Вопрос? Вариант1, Вариант2")
-        return
-    parts = args[1].split("?")
-    if len(parts) < 2:
-        bot.reply_to(message, "Поставь знак вопроса: /опрос Кто лох? Вася, Петя")
-        return
-    question = parts[0].strip() + "?"
-    options_text = parts[1].strip()
-    options = [o.strip() for o in options_text.split(",") if o.strip()]
-    if len(options) < 2:
-        options = ["Да", "Нет", "Я сглыпа"]
-    if len(options) > 10:
-        options = options[:10]
-    bot.send_poll(chat_id=message.chat.id, question=question, options=options, is_anonymous=False)
+    bot.reply_to(message, f"💬 «{quote}»")
 
 @bot.message_handler(commands=["voice", "войс", "голос"])
 def cmd_voice(message):
@@ -591,12 +426,12 @@ def cmd_clear(message):
 def handle_message(message):
     if not message.text or message.text.startswith("/"):
         return
-    
+
     text = message.text
     name = message.from_user.first_name or "Аноним"
     uid = message.from_user.id
     chat_id = message.chat.id
-    
+
     add_message(text)
     add_user_message(uid, name, text)
     c = get_counter()
@@ -604,7 +439,32 @@ def handle_message(message):
     c["reply"] += 1
     c["photo_reply"] += 1
     c["voice"] += 1
-    
+    c["mat"] += 1
+
+    # Реакция на мат в чате — считаем маты
+    if has_mat(text):
+        c["mat_voice"] += 1
+        # Раз в 10 матов — голосовой ор
+        if c["mat_voice"] >= TRIGGERS["mat_voice"]:
+            c["mat_voice"] = 0
+            save_counter()
+            threading.Thread(
+                target=lambda: send_mat_voice(bot, chat_id, message.message_id),
+                daemon=True
+            ).start()
+            return
+        # Обычная текстовая реакция на мат
+        if random.random() < 0.7:
+            bot.reply_to(message, random.choice(MAT).upper() + "!")
+            return
+
+    # Авто-мат (раз в 75 любых сообщений)
+    if c["mat"] >= TRIGGERS["mat"]:
+        c["mat"] = 0
+        save_counter()
+        bot.reply_to(message, random.choice(MAT).upper() + "!")
+        return
+
     # Авто-голосовое (раз в 250 сообщений)
     if c["voice"] >= TRIGGERS["voice"]:
         c["voice"] = 0
@@ -614,7 +474,7 @@ def handle_message(message):
             daemon=True
         ).start()
         return
-    
+
     # Авто-стих
     if c["msgs"] >= TRIGGERS["poem"]:
         c["msgs"] = 0
@@ -624,7 +484,7 @@ def handle_message(message):
             daemon=True
         ).start()
         return
-    
+
     # Авто-фото
     if c["photo_reply"] >= TRIGGERS["photo_reply"]:
         c["photo_reply"] = 0
@@ -635,35 +495,33 @@ def handle_message(message):
                 daemon=True
             ).start()
         return
-    
+
     # Авто-текстовый ответ
     if c["reply"] >= TRIGGERS["reply"]:
         c["reply"] = 0
         save_counter()
-        reply = absurd_word_salad(text)
+        reply = absurd_word_salad(text, length=random_reply_length())
         bot.reply_to(message, reply)
         return
-    
+
     save_counter()
-    
-    # Ответ на упоминание
+
+    # Ответ на упоминание бота
     bot_username = bot.get_me().username
     if bot_username and f"@{bot_username}" in text:
         clean = text.replace(f"@{bot_username}", "").strip()
         if random.random() < 0.2 and get_photos():
             send_random_photo(bot, chat_id, message.message_id)
         else:
-            bot.reply_to(message, absurd_word_salad(clean))
+            bot.reply_to(message, absurd_word_salad(clean, length=random_reply_length()))
         return
-    
-    # Реакция на мат
-    if has_mat(text) and random.random() < 0.5:
-        bot.reply_to(message, random.choice(MAT).upper() + "!")
-        return
-    
+
     # Случайный ответ (40% шанс)
     if random.random() < 0.4:
-        bot.reply_to(message, random_response(text))
+        if random.random() < 0.15:
+            bot.reply_to(message, " ".join(random.choices(EMOJI, k=random.randint(1, 3))))
+        else:
+            bot.reply_to(message, absurd_word_salad(text, length=random_reply_length()))
 
 # ─── Фото ──────────────────────────────────────────────────────────────────────
 def send_random_photo(bot_instance, chat_id, reply_to=None):
@@ -673,10 +531,8 @@ def send_random_photo(bot_instance, chat_id, reply_to=None):
     file_id = random.choice(photos)
     try:
         captions = [
-            absurd_word_salad(length=5),
+            absurd_word_salad(length=random_reply_length()),
             random.choice(EMOJI) * random.randint(1, 2),
-            random.choice(MAT).upper() + "!",
-            generate_insult(),
             "чё думаешь?",
             "🤔",
         ]
@@ -695,7 +551,7 @@ def handle_photo(message):
     file_id = message.photo[-1].file_id
     add_photo(file_id)
     caption = (message.caption or "").lower()
-    
+
     if "мем" in caption or "meme" in caption:
         file_info = bot.get_file(file_id)
         downloaded = bot.download_file(file_info.file_path)
@@ -705,8 +561,7 @@ def handle_photo(message):
         bot.send_photo(message.chat.id, output)
     elif random.random() < 0.3:
         comments = [
-            absurd_word_salad(length=5),
-            generate_insult(),
+            absurd_word_salad(length=random_reply_length()),
             random.choice(EMOJI) * random.randint(1, 2),
             "это чё такое?",
             "🤔",
