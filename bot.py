@@ -169,7 +169,6 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if length is None:
         length = random.randint(1, 10)
     
-    # 50% шанс взять реальный кусок сообщения
     if random.random() < 0.5:
         phrase = _random_phrase(chat_id)
         if phrase:
@@ -178,7 +177,6 @@ def absurd_word_salad(chat_id, source_text="", length=None):
                 phrase = " ".join(words[:length])
             return phrase.strip()
     
-    # Иначе салат
     pool = _chat_words(chat_id)
     if source_text:
         pool.extend(w.strip(".,!?:;\"'()«»") for w in source_text.split() if len(w) > 1)
@@ -186,7 +184,7 @@ def absurd_word_salad(chat_id, source_text="", length=None):
         return random.choice(EMOJI)
     result = [random.choice(pool) for _ in range(length)]
     text = " ".join(result)
-    if random.random() < 0.3:
+    if random.random() < 0.1:
         text = text.upper()
     if random.random() < 0.3:
         text += random.choice(["?", "!", "??", ""])
@@ -307,7 +305,6 @@ def _find_font(size):
     return ImageFont.load_default()
 
 def _find_serif_font(size):
-    """Шрифт с засечками для демотиваторов (Times New Roman)"""
     paths = [
         "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
@@ -323,17 +320,17 @@ def _find_serif_font(size):
 
 # ─── Мемы ─────────────────────────────────────────────────────────────────────
 def get_meme_text(chat_id):
+    """Текст для мема: до 10 слов"""
     if random.random() < 0.5:
         msgs = _load(chat_id, "messages")
         if msgs:
             msg = random.choice(msgs)
-            words = msg.split()
-            if len(words) > 5:
-                msg = " ".join(words[:5])
-            return msg.upper()
+            words = msg.split()[:10]
+            return " ".join(words).upper()
     all_words = _chat_words(chat_id, min_len=2)
     if all_words:
-        return " ".join(random.choices(all_words, k=min(random.randint(2, 4), len(all_words)))).upper()
+        count = min(random.randint(2, 5), len(all_words))
+        return " ".join(random.choices(all_words, k=count)).upper()
     return "ЛОЛЫЧ"
 
 def _draw_meme_text(draw, text, img_w, img_h, position="bottom"):
@@ -396,11 +393,9 @@ def send_random_meme(bot_instance, chat_id, reply_to=None):
 
 # ─── Демотиваторы ─────────────────────────────────────────────────────────────
 def make_demotivator(img_bytes, text):
-    """Классический демотиватор: чёрная рамка + фото + текст снизу"""
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     w, h = img.size
     
-    # Подгоняем размер фото
     max_size = 500
     if w > max_size or h > max_size:
         ratio = min(max_size / w, max_size / h)
@@ -409,29 +404,24 @@ def make_demotivator(img_bytes, text):
         img = img.resize((new_w, new_h), Image.LANCZOS)
         w, h = new_w, new_h
     
-    # Параметры
     border = 10
     text_height = 80
     
-    # Создаём холст: чёрный фон + белая рамка
     canvas_w = w + border * 2
     canvas_h = h + border * 2 + text_height + border
     canvas = Image.new("RGB", (canvas_w, canvas_h), "black")
     
-    # Внутренняя белая рамка
     draw = ImageDraw.Draw(canvas)
     draw.rectangle([3, 3, canvas_w - 3, canvas_h - 3], outline="white", width=3)
     
-    # Вставляем фото
     canvas.paste(img, (border, border))
     
-    # Текст
     font = _find_serif_font(24)
     lines = textwrap.wrap(text, width=30) or [text]
     line_h = 28
     text_y = h + border * 2 + 5
     
-    for line in lines[:3]:  # макс 3 строки
+    for line in lines[:3]:
         bbox = draw.textbbox((0, 0), line, font=font)
         text_w = bbox[2] - bbox[0]
         text_x = (canvas_w - text_w) // 2
@@ -480,6 +470,9 @@ def get_random_user(chat_id):
 # ─── Бот ──────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
 
+# ─── Подтверждение очистки ────────────────────────────────────────────────────
+_clear_confirm = {}
+
 # ─── Команды ──────────────────────────────────────────────────────────────────
 
 @bot.message_handler(commands=["start", "help"])
@@ -492,6 +485,7 @@ def cmd_start(message):
 /dem \[текст\] — демотиватор
 /quote — случайная цитата
 /voice — голосовое с абсурдом
+/stats — статистика хранилища
 /clear — очистить память чата
 """
     bot.reply_to(message, commands, parse_mode="Markdown")
@@ -515,7 +509,6 @@ def cmd_dem(message):
     args = message.text.split(maxsplit=1)
     custom_text = args[1] if len(args) > 1 else None
     
-    # Если ответ на фото — делаем из него
     if message.reply_to_message and message.reply_to_message.photo:
         file_id = message.reply_to_message.photo[-1].file_id
         text = custom_text or absurd_word_salad(message.chat.id, length=random.randint(3, 8))
@@ -530,7 +523,6 @@ def cmd_dem(message):
             bot.reply_to(message, "не смог сделать демотиватор")
             return
     
-    # Иначе случайное фото
     if not send_random_dem(bot, message.chat.id, custom_text=custom_text):
         bot.reply_to(message, "ещё не видел фоток в беседе!")
 
@@ -551,27 +543,55 @@ def cmd_voice(message):
     else:
         bot.reply_to(message, "не смог сказать. слова кончились.")
 
+@bot.message_handler(commands=["stats", "стат", "статистика"])
+def cmd_stats(message):
+    chat_id = message.chat.id
+    msgs = _load(chat_id, "messages")
+    users = _load(chat_id, "users")
+    photos = _load(chat_id, "photos")
+    c = get_counter(chat_id)
+    
+    stats = f"""📊 *Хранилище чата:*
+• Сообщений: {len(msgs)} / {LIMITS['messages']}
+• Участников: {len(users)}
+• Фото: {len(photos)} / {LIMITS['photos']}
+• Счётчик сообщений: {c.get('msgs', 0)}"""
+    
+    bot.reply_to(message, stats, parse_mode="Markdown")
+
 @bot.message_handler(commands=["clear", "очистить", "сброс"])
 def cmd_clear(message):
     chat_id = message.chat.id
-    global _markov_models, _markov_dirty
+    args = message.text.split()
     
-    for key in ["messages", "users", "photos", "counter"]:
-        path = _chat_file(chat_id, f"{key}.json")
-        if os.path.exists(path):
-            os.remove(path)
+    if len(args) > 1 and args[1].lower() == "yes":
+        if chat_id in _clear_confirm and _clear_confirm[chat_id]:
+            global _markov_models, _markov_dirty
+            
+            for key in ["messages", "users", "photos", "counter"]:
+                path = _chat_file(chat_id, f"{key}.json")
+                if os.path.exists(path):
+                    os.remove(path)
+            
+            for prefix in ["messages", "users", "photos", "counter"]:
+                cache_key = f"{chat_id}_{prefix}"
+                if cache_key in _cache:
+                    del _cache[cache_key]
+            
+            if chat_id in _markov_models:
+                del _markov_models[chat_id]
+            if chat_id in _markov_dirty:
+                _markov_dirty[chat_id] = True
+            
+            _clear_confirm[chat_id] = False
+            bot.reply_to(message, "🧹 Память чата очищена!")
+            return
+        else:
+            bot.reply_to(message, "Сначала напиши /clear для подтверждения")
+            return
     
-    for prefix in ["messages", "users", "photos", "counter"]:
-        cache_key = f"{chat_id}_{prefix}"
-        if cache_key in _cache:
-            del _cache[cache_key]
-    
-    if chat_id in _markov_models:
-        del _markov_models[chat_id]
-    if chat_id in _markov_dirty:
-        _markov_dirty[chat_id] = True
-    
-    bot.reply_to(message, "🧹 Память этого чата очищена!")
+    _clear_confirm[chat_id] = True
+    bot.reply_to(message, "⚠️ Ты уверен? Вся память этого чата будет стёрта.\nНапиши /clear yes для подтверждения")
 
 # ─── Обработка сообщений ──────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
@@ -654,7 +674,7 @@ def handle_message(message):
             threading.Thread(target=lambda: send_random_meme(bot, chat_id), daemon=True).start()
         return
     
-    # Авто-демотиватор (раз в 200-400 сообщений)
+    # Авто-демотиватор
     dem_trigger = random.randint(*TRIGGERS["dem"])
     if c["dem"] >= dem_trigger:
         c["dem"] = 0
