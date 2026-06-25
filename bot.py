@@ -4,6 +4,7 @@ import random
 import threading
 import json
 import os
+import requests
 from PIL import Image, ImageDraw, ImageFont
 import io
 import textwrap
@@ -21,18 +22,18 @@ log = logging.getLogger(__name__)
 TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
 
 LIMITS = {
-    "messages": 3000,
+    "messages": 5000,
     "user_msgs": 700,
     "photos": 200,
 }
 
-TRIGGERS = {
-    "poem": (100, 300),
-    "reply": (75, 75),
-    "meme": (100, 200),
-    "voice": (100, 200),
-    "mat": (75, 75),
-    "dem": (200, 400),
+# Уровни активности: (авто-ответ, стих, мем, войс, дем, мат, стик)
+LEVELS = {
+    1: (200, 500, 400, 500, 800, 200, 600),
+    2: (150, 350, 300, 350, 600, 150, 450),
+    3: (100, 250, 200, 250, 400, 100, 300),
+    4: (75,  150, 150, 150, 300, 75,  200),
+    5: (40,  80,  80,  80,  150, 40,  100),
 }
 
 MAT_VOICE_EVERY = 10
@@ -51,12 +52,86 @@ EMOJI = ["💀","🗿","😭","🤡","👀","🔥","😐","💅","🫡","🤨","
          "🫠","🤌","😈","🧌","🫃","🤯","💩","🙈","😵","🤪","👁️","🦴","🫀","🧠",
          "🤡","👺","💢","🔞","☠️","🤮","😬","🥴","👻","🫵","🤬"]
 
+# Шаблоны memegen.link
+MEME_TEMPLATES = [
+    "drake", "buttons", "brain", "change", "gru", "rollsafe", "both",
+    "keanu", "sad", "fry", "success", "disaster", "fine", "wolverine",
+    "wonka", "patrick", "spongebob", "yuno", "everywhere", "woman",
+    "facepalm", "firsttry", "tried", "buzz", "chosen", "bad", "good",
+    "money", "idea", "same", "winter", "truth", "doge", "bernie",
+    "waiting", "skeleton", "office", "bender", "interesting",
+]
+
+# Наклейки (URL)
+STICKERS = [
+    # Like a boss (очки + сигара)
+    "https://i.postimg.cc/xTQn4K5L/boss.png",
+    # Очки Minecraft
+    "https://i.postimg.cc/3R0KF9Qs/minecraft-glasses.png",
+    # Пукающий стикер
+    "https://i.postimg.cc/5tZVQ0bN/fart.png",
+    # Цифра 67
+    "https://i.postimg.cc/8CYKQqW5/67.png",
+    # MLG очки
+    "https://i.postimg.cc/9QkB8L3H/mlg.png",
+    # Смешной лев
+    "https://i.postimg.cc/zGxHYsQf/lion.png",
+    # Сердечко
+    "https://i.postimg.cc/3wGLyN2Q/heart.png",
+    # Шаринган
+    "https://i.postimg.cc/fyn2n5Vz/sharingan.png",
+    # Петух
+    "https://i.postimg.cc/4x5kW2kB/rooster.png",
+    # Смеющийся смайл
+    "https://i.postimg.cc/wMxN0YWg/laughing.png",
+    # Supreme box logo
+    "https://i.postimg.cc/FHNg6YR4/supreme.png",
+    # Adidas значок
+    "https://i.postimg.cc/85RGLYS0/adidas.png",
+    # Череп
+    "https://i.postimg.cc/0NXdBLJX/skull.png",
+    # Корона
+    "https://i.postimg.cc/yYcLQpW2/crown.png",
+    # Слеза
+    "https://i.postimg.cc/tJbnQs9x/tear.png",
+    # Красный круг (как в ютубе)
+    "https://i.postimg.cc/8ctcH2Wx/circle.png",
+    # Спарклы
+    "https://i.postimg.cc/2yX1p3qR/sparkles.png",
+    # Огонь
+    "https://i.postimg.cc/sgc5GQQR/fire.png",
+    # Каменное лицо
+    "https://i.postimg.cc/TPG4wLCQ/moai.png",
+    # Глаз терминатора
+    "https://i.postimg.cc/d3XjC3jD/terminator.png",
+]
+# Триггер «кто» — варианты ответов
+KTO_ANSWERS = [
+    "это {user}, без сомнений",
+    "{user}, больше некому",
+    "очевидно, {user}",
+    "{user}, я так чувствую",
+    "все знают что это {user}",
+    "{user}, и это не обсуждается",
+    "мой внутренний голос говорит — {user}",
+    "{user}, а кто же ещё",
+    "ну конечно {user}, красавчик",
+    "{user}, я за ним давно слежу",
+    "это {user}, сто процентов",
+    "гадалка сказала — {user}",
+    "{user}, я посчитал",
+    "по звёздам выходит {user}",
+    "{user}, тут и думать нечего",
+]
+
 # ─── Файлы для каждого чата ───────────────────────────────────────────────────
 def _chat_file(chat_id, name):
     return f"chat_{chat_id}_{name}"
 
 # ─── Хранилище ─────────────────────────────────────────────────────────────────
 _cache = {}
+_chat_levels = {}
+_chat_muted = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -64,9 +139,11 @@ def _load(chat_id, key):
         return _cache[cache_key]
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
-        default = {} if key in ("users", "counter") else []
+        default = {} if key in ("users", "counter", "settings") else []
         if key == "counter":
-            default = {"msgs": 0, "reply": 0, "meme": 0, "voice": 0, "mat": 0, "mat_voice": 0, "dem": 0}
+            default = {"msgs": 0, "reply": 0, "meme": 0, "voice": 0, "mat": 0, "mat_voice": 0, "dem": 0, "stick": 0}
+        if key == "settings":
+            default = {"level": 1, "muted": False}
         _cache[cache_key] = default
         return default
     with open(path, "r", encoding="utf-8") as f:
@@ -123,7 +200,9 @@ def get_users(chat_id):
     return _load(chat_id, "users")
 
 # ─── Фото ─────────────────────────────────────────────────────────────────────
-def add_photo(chat_id, file_id):
+def add_photo(chat_id, file_id, from_bot=False):
+    if from_bot:
+        return
     photos = _load(chat_id, "photos")
     if file_id not in photos:
         photos.append(file_id)
@@ -134,6 +213,21 @@ def add_photo(chat_id, file_id):
 def get_photos(chat_id):
     return _load(chat_id, "photos")
 
+# ─── Настройки чата ───────────────────────────────────────────────────────────
+def get_settings(chat_id):
+    return _load(chat_id, "settings")
+
+def save_settings(chat_id):
+    _save(chat_id, "settings")
+
+def get_level(chat_id):
+    settings = get_settings(chat_id)
+    return settings.get("level", 1)
+
+def is_muted(chat_id):
+    settings = get_settings(chat_id)
+    return settings.get("muted", False)
+
 # ─── Счётчики ─────────────────────────────────────────────────────────────────
 def get_counter(chat_id):
     return _load(chat_id, "counter")
@@ -142,17 +236,16 @@ def save_counter(chat_id):
     _save(chat_id, "counter")
 
 # ─── Слова чата ───────────────────────────────────────────────────────────────
-def _chat_words(chat_id, min_len=2, last_n=300):
+def _chat_words(chat_id, min_len=2):
     msgs = _load(chat_id, "messages")
     if not msgs:
         return []
     words = []
-    for m in msgs[-last_n:]:
+    for m in msgs:
         words.extend(w.strip(".,!?:;\"'()«»") for w in m.split())
     return [w for w in words if len(w) > min_len]
 
 def _random_phrase(chat_id):
-    """Возвращает случайное целое сообщение или его кусок"""
     msgs = _load(chat_id, "messages")
     if not msgs:
         return None
@@ -165,9 +258,15 @@ def _random_phrase(chat_id):
     return msg
 
 def absurd_word_salad(chat_id, source_text="", length=None):
-    """50% — целая фраза из чата, 50% — салат из слов"""
+    """60% — 1-3 слова, 30% — 4-7, 10% — 8-10"""
     if length is None:
-        length = random.randint(1, 10)
+        roll = random.random()
+        if roll < 0.6:
+            length = random.randint(1, 3)
+        elif roll < 0.9:
+            length = random.randint(4, 7)
+        else:
+            length = random.randint(8, 10)
     
     if random.random() < 0.5:
         phrase = _random_phrase(chat_id)
@@ -189,25 +288,6 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.3:
         text += random.choice(["?", "!", "??", ""])
     return text.strip()
-
-# ─── Цитата ───────────────────────────────────────────────────────────────────
-def random_quote_salad(chat_id, length=None):
-    msgs = _load(chat_id, "messages")
-    if not msgs:
-        return None
-    if length is None:
-        length = random.randint(6, 12)
-    words = []
-    attempts = 0
-    while len(words) < length and attempts < length * 5:
-        attempts += 1
-        msg = random.choice(msgs)
-        candidates = [w.strip(".,!?:;\"'()«»") for w in msg.split() if len(w) > 1]
-        if candidates:
-            words.append(random.choice(candidates))
-    if not words:
-        return None
-    return " ".join(words)
 
 # ─── Голосовые ────────────────────────────────────────────────────────────────
 def generate_voice(text):
@@ -266,23 +346,54 @@ def mix_messages(chat_id):
     mixed = " ".join(half1 + half2)
     return mixed.strip()
 
-# ─── Стихи ────────────────────────────────────────────────────────────────────
+# ─── Стихи с рифмами ──────────────────────────────────────────────────────────
+RHYMES = {
+    "ать": ["мать", "спать", "послать", "страдать", "ждать"],
+    "ить": ["жить", "любить", "тупить", "ходить", "говорить"],
+    "ой": ["тобой", "судьбой", "головой", "стеной", "луной"],
+    "ай": ["давай", "лентяй", "урожай", "сарай", "знай"],
+    "еть": ["сидеть", "глядеть", "хотеть", "балдеть", "пиздеть"],
+    "ок": ["дружок", "пирожок", "прыжок", "кружок", "звонок"],
+    "ак": ["дурак", "рыбак", "чужак", "бивак", "пятак"],
+}
+
+def find_rhyme(word):
+    word = word.lower()
+    for ending, rhymes in RHYMES.items():
+        if word.endswith(ending):
+            return random.choice(rhymes)
+    return word
+
 def make_poem(chat_id):
     model = _get_markov_model(chat_id)
     words = _chat_words(chat_id)
     if not words:
         return absurd_word_salad(chat_id)
+    
     lines = []
-    for _ in range(random.randint(2, 4)):
+    for i in range(random.randint(2, 4)):
         if model and random.random() < 0.5:
             line = model.make_short_sentence(50, tries=20)
         else:
             line = " ".join(random.choices(words, k=random.randint(3, 6)))
+        
         if line:
             words_in_line = line.split()
             if len(words_in_line) > 8:
                 line = " ".join(words_in_line[:8])
+            
+            # Рифма для чётных строк
+            if i % 2 == 1 and len(lines) > 0:
+                last_word_prev = lines[-1].split()[-1].strip(".,!?:;\"'()")
+                last_word_curr = words_in_line[-1].strip(".,!?:;\"'()")
+                if random.random() < 0.5:
+                    rhyme = find_rhyme(last_word_prev)
+                    if rhyme != last_word_curr:
+                        words_in_line[-1] = rhyme
+                        line = " ".join(words_in_line)
+            
             lines.append(line)
+    
     if len(lines) < 2:
         return absurd_word_salad(chat_id)
     return "\n".join(lines[:4])
@@ -318,80 +429,7 @@ def _find_serif_font(size):
             continue
     return _find_font(size)
 
-# ─── Мемы ─────────────────────────────────────────────────────────────────────
-def get_meme_text(chat_id):
-    """Текст для мема: до 10 слов"""
-    if random.random() < 0.5:
-        msgs = _load(chat_id, "messages")
-        if msgs:
-            msg = random.choice(msgs)
-            words = msg.split()[:10]
-            return " ".join(words).upper()
-    all_words = _chat_words(chat_id, min_len=2)
-    if all_words:
-        count = min(random.randint(2, 5), len(all_words))
-        return " ".join(random.choices(all_words, k=count)).upper()
-    return "ЛОЛЫЧ"
-
-def _draw_meme_text(draw, text, img_w, img_h, position="bottom"):
-    text = text.upper().strip()
-    if not text:
-        return
-    font_size = max(int(img_h * 0.10), 24)
-    font = _find_font(font_size)
-    wrap_width = max(int(img_w / (font_size * 0.62)), 6)
-    lines = textwrap.wrap(text, width=wrap_width) or [text]
-    outline = max(int(font_size * 0.07), 2)
-    line_height = int(font_size * 1.15)
-    total_h = line_height * len(lines)
-    y = int(img_h * 0.02) if position == "top" else img_h - total_h - int(img_h * 0.03)
-    for line in lines:
-        try:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            text_w = bbox[2] - bbox[0]
-        except:
-            text_w = len(line) * int(font_size * 0.55)
-        x = max(5, (img_w - text_w) // 2)
-        for dx in range(-outline, outline + 1):
-            for dy in range(-outline, outline + 1):
-                if dx == 0 and dy == 0:
-                    continue
-                draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0))
-        draw.text((x, y), line, font=font, fill=(255, 255, 255))
-        y += line_height
-
-def make_meme(img_bytes, top_text, bottom_text):
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    draw = ImageDraw.Draw(img)
-    w, h = img.size
-    _draw_meme_text(draw, top_text, w, h, "top")
-    _draw_meme_text(draw, bottom_text, w, h, "bottom")
-    out = io.BytesIO()
-    img.save(out, format="JPEG")
-    out.seek(0)
-    return out
-
-def send_random_meme(bot_instance, chat_id, reply_to=None):
-    photos = get_photos(chat_id)
-    if not photos:
-        return False
-    file_id = random.choice(photos)
-    top = get_meme_text(chat_id)
-    bottom = get_meme_text(chat_id)
-    try:
-        file_info = bot_instance.get_file(file_id)
-        downloaded = bot_instance.download_file(file_info.file_path)
-        output = make_meme(downloaded, top, bottom)
-        if reply_to:
-            bot_instance.send_photo(chat_id, output, reply_to_message_id=reply_to)
-        else:
-            bot_instance.send_photo(chat_id, output)
-        return True
-    except Exception as e:
-        log.error(f"send_random_meme error: {e}")
-    return False
-
-# ─── Демотиваторы ─────────────────────────────────────────────────────────────
+# ─── Демотиватор ─────────────────────────────────────────────────────────────
 def make_demotivator(img_bytes, text):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     w, h = img.size
@@ -428,6 +466,16 @@ def make_demotivator(img_bytes, text):
         draw.text((text_x, text_y), line, font=font, fill="white")
         text_y += line_h
     
+    # Марка lolych
+    try:
+        mark_font = _find_font(14)
+        mark_text = "lolych"
+        mark_bbox = draw.textbbox((0, 0), mark_text, font=mark_font)
+        mark_w = mark_bbox[2] - mark_bbox[0]
+        draw.text((canvas_w - mark_w - 8, canvas_h - 22), mark_text, font=mark_font, fill=(180, 180, 180))
+    except:
+        pass
+    
     out = io.BytesIO()
     canvas.save(out, format="JPEG")
     out.seek(0)
@@ -439,10 +487,7 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         return False
     file_id = random.choice(photos)
     
-    if custom_text:
-        text = custom_text
-    else:
-        text = absurd_word_salad(chat_id, length=random.randint(3, 8))
+    text = custom_text or absurd_word_salad(chat_id, length=random.randint(3, 8))
     
     try:
         file_info = bot_instance.get_file(file_id)
@@ -457,6 +502,79 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         log.error(f"send_random_dem error: {e}")
     return False
 
+# ─── Мемы через memegen.link ───────────────────────────────────────────────────
+def make_meme_url(template, top_text, bottom_text):
+    """Создаёт URL для memegen.link"""
+    top = top_text.replace(" ", "_") if top_text else "_"
+    bottom = bottom_text.replace(" ", "_") if bottom_text else "_"
+    return f"https://api.memegen.link/images/{template}/{top}/{bottom}.jpg"
+
+def send_template_meme(bot_instance, chat_id, reply_to=None):
+    template = random.choice(MEME_TEMPLATES)
+    top = absurd_word_salad(chat_id, length=random.randint(2, 5))
+    bottom = absurd_word_salad(chat_id, length=random.randint(2, 5))
+    
+    try:
+        url = make_meme_url(template, top, bottom)
+        if reply_to:
+            bot_instance.send_photo(chat_id, url, reply_to_message_id=reply_to)
+        else:
+            bot_instance.send_photo(chat_id, url)
+        return True
+    except Exception as e:
+        log.error(f"send_template_meme error: {e}")
+    return False
+
+# ─── Наклейки ────────────────────────────────────────────────────────────────
+def make_sticker(img_bytes):
+    """Накладывает случайную наклейку на фото"""
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+    w, h = img.size
+    
+    # Скачиваем наклейку
+    sticker_url = random.choice(STICKERS)
+    try:
+        sticker_data = requests.get(sticker_url, timeout=5).content
+        sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
+        
+        # Размер наклейки ~20% от фото
+        sticker_size = min(w, h) // 5
+        sticker = sticker.resize((sticker_size, sticker_size), Image.LANCZOS)
+        
+        # Случайная позиция
+        x = random.randint(0, max(0, w - sticker_size))
+        y = random.randint(0, max(0, h - sticker_size))
+        
+        img.paste(sticker, (x, y), sticker)
+    except Exception as e:
+        log.error(f"Sticker error: {e}")
+    
+    # Конвертируем в RGB для JPEG
+    img_rgb = img.convert("RGB")
+    out = io.BytesIO()
+    img_rgb.save(out, format="JPEG")
+    out.seek(0)
+    return out
+
+def send_sticker_photo(bot_instance, chat_id, reply_to=None):
+    photos = get_photos(chat_id)
+    if not photos:
+        return False
+    
+    file_id = random.choice(photos)
+    try:
+        file_info = bot_instance.get_file(file_id)
+        downloaded = bot_instance.download_file(file_info.file_path)
+        output = make_sticker(downloaded)
+        if reply_to:
+            bot_instance.send_photo(chat_id, output, reply_to_message_id=reply_to)
+        else:
+            bot_instance.send_photo(chat_id, output)
+        return True
+    except Exception as e:
+        log.error(f"send_sticker_photo error: {e}")
+    return False
+
 # ─── Хелперы ──────────────────────────────────────────────────────────────────
 def has_mat(text):
     return any(m in text.lower() for m in MAT)
@@ -469,8 +587,6 @@ def get_random_user(chat_id):
 
 # ─── Бот ──────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
-
-# ─── Подтверждение очистки ────────────────────────────────────────────────────
 _clear_confirm = {}
 
 # ─── Команды ──────────────────────────────────────────────────────────────────
@@ -478,17 +594,57 @@ _clear_confirm = {}
 @bot.message_handler(commands=["start", "help"])
 def cmd_start(message):
     commands = """
-🎭 *Лолыч-сглыпа к вашим услугам:*
+🎭 *Лолыч к вашим услугам:*
 /mix — микс двух сообщений
-/poem — сгенерировать стих
-/meme — создать мем
-/dem \[текст\] — демотиватор
-/quote — случайная цитата
-/voice — голосовое с абсурдом
-/stats — статистика хранилища
-/clear — очистить память чата
+/poem — стих с рифмой
+/meme — мем (шаблонный)
+/dem — демотиватор
+/stick — наклейка на фото
+/voice — голосовое
+/stats — статистика
+/level 1-5 — уровень активности
+/mute — режим тишины
+/unmute — включить
+/clear — очистить память
 """
     bot.reply_to(message, commands, parse_mode="Markdown")
+
+@bot.message_handler(commands=["level"])
+def cmd_level(message):
+    args = message.text.split()
+    if len(args) < 2:
+        current = get_level(message.chat.id)
+        bot.reply_to(message, f"Текущий уровень: {current}\n/level 1-5 чтобы изменить")
+        return
+    
+    try:
+        level = int(args[1])
+        if level < 1 or level > 5:
+            bot.reply_to(message, "Уровень от 1 до 5")
+            return
+        
+        settings = get_settings(message.chat.id)
+        settings["level"] = level
+        save_settings(message.chat.id)
+        
+        names = {1: "тихий", 2: "спокойный", 3: "обычный", 4: "активный", 5: "бешеный"}
+        bot.reply_to(message, f"Уровень: {level} ({names[level]})")
+    except:
+        bot.reply_to(message, "Напиши: /level 1-5")
+
+@bot.message_handler(commands=["mute"])
+def cmd_mute(message):
+    settings = get_settings(message.chat.id)
+    settings["muted"] = True
+    save_settings(message.chat.id)
+    bot.reply_to(message, "🔇 Режим тишины. Не пишу, не запоминаю.\n/unmute чтобы включить обратно")
+
+@bot.message_handler(commands=["unmute"])
+def cmd_unmute(message):
+    settings = get_settings(message.chat.id)
+    settings["muted"] = False
+    save_settings(message.chat.id)
+    bot.reply_to(message, "🔈 Проснулся! Снова с вами.")
 
 @bot.message_handler(commands=["mix", "микс"])
 def cmd_mix(message):
@@ -501,8 +657,8 @@ def cmd_poem(message):
 
 @bot.message_handler(commands=["meme", "мем", "mem"])
 def cmd_meme(message):
-    if not send_random_meme(bot, message.chat.id):
-        bot.reply_to(message, "ещё не видел фоток в беседе!")
+    if not send_template_meme(bot, message.chat.id):
+        bot.reply_to(message, "не смог сделать мем")
 
 @bot.message_handler(commands=["dem", "дем", "демотиватор"])
 def cmd_dem(message):
@@ -519,29 +675,39 @@ def cmd_dem(message):
             bot.send_photo(message.chat.id, output)
             return
         except Exception as e:
-            log.error(f"dem from reply error: {e}")
+            log.error(f"dem error: {e}")
             bot.reply_to(message, "не смог сделать демотиватор")
             return
     
     if not send_random_dem(bot, message.chat.id, custom_text=custom_text):
         bot.reply_to(message, "ещё не видел фоток в беседе!")
 
-@bot.message_handler(commands=["quote", "цитата"])
-def cmd_quote(message):
-    quote = random_quote_salad(message.chat.id)
-    if not quote:
-        bot.reply_to(message, "цитат пока нет")
-        return
-    bot.reply_to(message, f"💬 «{quote}»")
+@bot.message_handler(commands=["stick", "стик", "наклейка"])
+def cmd_stick(message):
+    if message.reply_to_message and message.reply_to_message.photo:
+        file_id = message.reply_to_message.photo[-1].file_id
+        try:
+            file_info = bot.get_file(file_id)
+            downloaded = bot.download_file(file_info.file_path)
+            output = make_sticker(downloaded)
+            bot.send_photo(message.chat.id, output)
+            return
+        except Exception as e:
+            log.error(f"stick error: {e}")
+            bot.reply_to(message, "не смог наложить наклейку")
+            return
+    
+    if not send_sticker_photo(bot, message.chat.id):
+        bot.reply_to(message, "ещё не видел фоток в беседе!")
 
 @bot.message_handler(commands=["voice", "войс", "голос"])
 def cmd_voice(message):
     text = absurd_word_salad(message.chat.id)
     voice = generate_voice(text)
     if voice:
-        bot.send_voice(message.chat.id, voice, caption="сглыпа говорит")
+        bot.send_voice(message.chat.id, voice)
     else:
-        bot.reply_to(message, "не смог сказать. слова кончились.")
+        bot.reply_to(message, "не смог сказать")
 
 @bot.message_handler(commands=["stats", "стат", "статистика"])
 def cmd_stats(message):
@@ -549,13 +715,16 @@ def cmd_stats(message):
     msgs = _load(chat_id, "messages")
     users = _load(chat_id, "users")
     photos = _load(chat_id, "photos")
-    c = get_counter(chat_id)
+    settings = get_settings(chat_id)
+    
+    names = {1: "тихий", 2: "спокойный", 3: "обычный", 4: "активный", 5: "бешеный"}
     
     stats = f"""📊 *Хранилище чата:*
 • Сообщений: {len(msgs)} / {LIMITS['messages']}
 • Участников: {len(users)}
 • Фото: {len(photos)} / {LIMITS['photos']}
-• Счётчик сообщений: {c.get('msgs', 0)}"""
+• Уровень: {settings.get('level', 1)} ({names.get(settings.get('level', 1), 'тихий')})
+• Режим: {'🔇 тишина' if settings.get('muted') else '🔈 активен'}"""
     
     bot.reply_to(message, stats, parse_mode="Markdown")
 
@@ -591,7 +760,7 @@ def cmd_clear(message):
             return
     
     _clear_confirm[chat_id] = True
-    bot.reply_to(message, "⚠️ Ты уверен? Вся память этого чата будет стёрта.\nНапиши /clear yes для подтверждения")
+    bot.reply_to(message, "⚠️ Уверен? Вся память этого чата будет стёрта.\nНапиши /clear yes для подтверждения")
 
 # ─── Обработка сообщений ──────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
@@ -599,14 +768,23 @@ def handle_message(message):
     if not message.text or message.text.startswith("/"):
         return
     
+    chat_id = message.chat.id
+    
+    # Режим тишины
+    if is_muted(chat_id):
+        return
+    
     text = message.text
     name = message.from_user.first_name or "Аноним"
     uid = message.from_user.id
-    chat_id = message.chat.id
     text_lower = text.lower().strip()
     
     add_message(chat_id, text)
     add_user_message(chat_id, uid, name, text)
+    
+    level = get_level(chat_id)
+    triggers = LEVELS.get(level, LEVELS[1])
+    
     c = get_counter(chat_id)
     c["msgs"] = c.get("msgs", 0) + 1
     c["reply"] = c.get("reply", 0) + 1
@@ -614,12 +792,14 @@ def handle_message(message):
     c["voice"] = c.get("voice", 0) + 1
     c["mat"] = c.get("mat", 0) + 1
     c["dem"] = c.get("dem", 0) + 1
+    c["stick"] = c.get("stick", 0) + 1
     
-    # «Кто...»
-    if text_lower.startswith(("кто из нас", "кто тут", "кто здесь", "кто у нас")):
+    # «Кто...» — в любом месте сообщения
+    if "кто" in text_lower.split():
         user = get_random_user(chat_id)
         if user:
-            bot.reply_to(message, f"это {user}")
+            answer = random.choice(KTO_ANSWERS).format(user=user)
+            bot.reply_to(message, answer)
             return
     
     # «лолыч», «лолич»
@@ -627,7 +807,7 @@ def handle_message(message):
         clean = text
         for w in ["лолыч", "лолич"]:
             clean = clean.lower().replace(w, "").strip()
-        bot.reply_to(message, absurd_word_salad(chat_id, clean, length=random.randint(1, 10)))
+        bot.reply_to(message, absurd_word_salad(chat_id, clean))
         return
     
     # Мат
@@ -643,51 +823,54 @@ def handle_message(message):
             return
     
     # Авто-мат
-    if c["mat"] >= TRIGGERS["mat"][0]:
+    if c["mat"] >= triggers[5]:
         c["mat"] = 0
         save_counter(chat_id)
         bot.reply_to(message, random.choice(MAT).upper() + "!")
         return
     
     # Авто-войс
-    voice_trigger = random.randint(*TRIGGERS["voice"])
-    if c["voice"] >= voice_trigger:
+    if c["voice"] >= triggers[3]:
         c["voice"] = 0
         save_counter(chat_id)
         threading.Thread(target=lambda: send_random_voice(bot, chat_id), daemon=True).start()
         return
     
     # Авто-стих
-    poem_trigger = random.randint(*TRIGGERS["poem"])
-    if c["msgs"] >= poem_trigger:
+    if c["msgs"] >= triggers[1]:
         c["msgs"] = 0
         save_counter(chat_id)
         threading.Thread(target=lambda: bot.send_message(chat_id, f"🎭\n{make_poem(chat_id)}"), daemon=True).start()
         return
     
-    # Авто-мем
-    meme_trigger = random.randint(*TRIGGERS["meme"])
-    if c["meme"] >= meme_trigger:
+    # Авто-мем (шаблонный)
+    if c["meme"] >= triggers[2]:
         c["meme"] = 0
         save_counter(chat_id)
-        if get_photos(chat_id):
-            threading.Thread(target=lambda: send_random_meme(bot, chat_id), daemon=True).start()
+        threading.Thread(target=lambda: send_template_meme(bot, chat_id), daemon=True).start()
         return
     
     # Авто-демотиватор
-    dem_trigger = random.randint(*TRIGGERS["dem"])
-    if c["dem"] >= dem_trigger:
+    if c["dem"] >= triggers[4]:
         c["dem"] = 0
         save_counter(chat_id)
         if get_photos(chat_id):
             threading.Thread(target=lambda: send_random_dem(bot, chat_id), daemon=True).start()
         return
     
+    # Авто-стик
+    if c["stick"] >= triggers[6]:
+        c["stick"] = 0
+        save_counter(chat_id)
+        if get_photos(chat_id):
+            threading.Thread(target=lambda: send_sticker_photo(bot, chat_id), daemon=True).start()
+        return
+    
     # Авто-ответ
-    if c["reply"] >= TRIGGERS["reply"][0]:
+    if c["reply"] >= triggers[0]:
         c["reply"] = 0
         save_counter(chat_id)
-        bot.reply_to(message, absurd_word_salad(chat_id, text, length=random.randint(1, 10)))
+        bot.reply_to(message, absurd_word_salad(chat_id, text))
         return
     
     save_counter(chat_id)
@@ -696,7 +879,7 @@ def handle_message(message):
     bot_username = bot.get_me().username
     if bot_username and f"@{bot_username}" in text:
         clean = text.replace(f"@{bot_username}", "").strip()
-        bot.reply_to(message, absurd_word_salad(chat_id, clean, length=random.randint(1, 10)))
+        bot.reply_to(message, absurd_word_salad(chat_id, clean))
         return
     
     # Случайный ответ (40%)
@@ -704,28 +887,33 @@ def handle_message(message):
         if random.random() < 0.15:
             bot.reply_to(message, " ".join(random.choices(EMOJI, k=random.randint(1, 3))))
         else:
-            bot.reply_to(message, absurd_word_salad(chat_id, text, length=random.randint(1, 10)))
+            bot.reply_to(message, absurd_word_salad(chat_id, text))
 
 # ─── Фото ─────────────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
-    file_id = message.photo[-1].file_id
     chat_id = message.chat.id
+    
+    # Режим тишины — не запоминаем
+    if is_muted(chat_id):
+        return
+    
+    file_id = message.photo[-1].file_id
     add_photo(chat_id, file_id)
     caption = (message.caption or "").lower()
     
     if any(w in caption for w in ["мем", "meme"]):
-        file_info = bot.get_file(file_id)
-        downloaded = bot.download_file(file_info.file_path)
-        top = get_meme_text(chat_id)
-        bottom = get_meme_text(chat_id)
-        output = make_meme(downloaded, top, bottom)
-        bot.send_photo(chat_id, output)
+        send_template_meme(bot, chat_id, message.message_id)
     elif any(w in caption for w in ["дем", "dem"]):
         file_info = bot.get_file(file_id)
         downloaded = bot.download_file(file_info.file_path)
         text = absurd_word_salad(chat_id, length=random.randint(3, 8))
         output = make_demotivator(downloaded, text)
+        bot.send_photo(chat_id, output)
+    elif any(w in caption for w in ["стик", "stick"]):
+        file_info = bot.get_file(file_id)
+        downloaded = bot.download_file(file_info.file_path)
+        output = make_sticker(downloaded)
         bot.send_photo(chat_id, output)
     elif random.random() < 0.3:
         comments = [
