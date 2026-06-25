@@ -1,4 +1,5 @@
 import telebot
+import urllib.parse
 import markovify
 import random
 import threading
@@ -504,11 +505,11 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
 
 # ─── Мемы через memegen.link ───────────────────────────────────────────────────
 def make_meme_url(template, top_text, bottom_text):
-    """Создаёт URL для memegen.link"""
-    top = top_text.replace(" ", "_") if top_text else "_"
-    bottom = bottom_text.replace(" ", "_") if bottom_text else "_"
+    """Создаёт URL для memegen.link с правильным кодированием"""
+    import urllib.parse
+    top = urllib.parse.quote(top_text or "_", safe="")
+    bottom = urllib.parse.quote(bottom_text or "_", safe="")
     return f"https://api.memegen.link/images/{template}/{top}/{bottom}.jpg"
-
 def send_template_meme(bot_instance, chat_id, reply_to=None):
     template = random.choice(MEME_TEMPLATES)
     top = absurd_word_salad(chat_id, length=random.randint(2, 5))
