@@ -504,27 +504,76 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
     return False
 
 # ─── Мемы через memegen.link ───────────────────────────────────────────────────
-def make_meme_url(template, top_text, bottom_text):
-    """Создаёт URL для memegen.link"""
-    top = "hello"
-    bottom = "world"
-    return f"https://api.memegen.link/images/{template}/{top}/{bottom}.jpg"
-def send_template_meme(bot_instance, chat_id, reply_to=None):
-    template = random.choice(MEME_TEMPLATES)
-    top = absurd_word_salad(chat_id, length=random.randint(2, 5))
-    bottom = absurd_word_salad(chat_id, length=random.randint(2, 5))
+# ─── Мемы через imgflip ───────────────────────────────────────────────────────
+IMGFLIP_USER = "lilifridge"
+IMGFLIP_PASS = "eMsWrri64INeGJd"
+
+# Популярные шаблоны imgflip (template_id)
+IMGFLIP_TEMPLATES = [
+    181913649,  # Drake Hotline Bling
+    87743020,   # Two Buttons
+    93895088,   # Expanding Brain
+    252600902,  # Change My Mind
+    131940431,  # Gru's Plan
+    89370399,   # Roll Safe
+    110163934,  # Both Buttons
+    61579,      # One Does Not Simply
+    101470,     # Ancient Aliens
+    217743513,  # UNO Draw 25
+    91538330,   # Monkey Puppet
+    4087833,    # Waiting Skeleton
+    5496396,    # Leonardo Dicaprio Cheers
+    1035805,    # Boardroom Meeting
+    123999232,  # The Scroll of Truth
+    124822590,  # Left Exit 12
+    148909805,  # Monkey Puppet Side Eye
+    97984,      # Disaster Girl
+    161865971,  # Gru's Plan 3 panels
+    9440985,    # Third World Skeptical Kid
+    55353130,   # Spongebob Ight Imma Head Out
+]
+
+def make_imgflip_meme(template_id, texts):
+    """Создаёт мем через imgflip API"""
+    url = "https://api.imgflip.com/caption_image"
+    params = {
+        "template_id": template_id,
+        "username": IMGFLIP_USER,
+        "password": IMGFLIP_PASS,
+    }
+    for i, text in enumerate(texts):
+        params[f"boxes[{i}][text]"] = text[:100]  # макс 100 символов
     
     try:
-        url = make_meme_url(template, top, bottom)
-        if reply_to:
-            bot_instance.send_photo(chat_id, url, reply_to_message_id=reply_to)
+        resp = requests.post(url, data=params, timeout=15)
+        data = resp.json()
+        if data.get("success") and data.get("data", {}).get("url"):
+            return data["data"]["url"]
         else:
-            bot_instance.send_photo(chat_id, url)
-        return True
+            log.error(f"imgflip error: {data.get('error_message', 'unknown')}")
+            return None
     except Exception as e:
-        log.error(f"send_template_meme error: {e}")
-    return False
+        log.error(f"imgflip request error: {e}")
+        return None
 
+def send_template_meme(bot_instance, chat_id, reply_to=None):
+    template_id = random.choice(IMGFLIP_TEMPLATES)
+    
+    # 1-3 текста для разных шаблонов
+    num_texts = random.randint(2, 3)
+    texts = [absurd_word_salad(chat_id, length=random.randint(2, 6)) for _ in range(num_texts)]
+    
+    url = make_imgflip_meme(template_id, texts)
+    if url:
+        try:
+            if reply_to:
+                bot_instance.send_photo(chat_id, url, reply_to_message_id=reply_to)
+            else:
+                bot_instance.send_photo(chat_id, url)
+            return True
+        except Exception as e:
+            log.error(f"send_template_meme error: {e}")
+    return False
 # ─── Наклейки ────────────────────────────────────────────────────────────────
 def make_sticker(img_bytes):
     """Накладывает случайную наклейку на фото"""
