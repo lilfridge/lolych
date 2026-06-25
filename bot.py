@@ -505,10 +505,9 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
 
 # ─── Мемы через memegen.link ───────────────────────────────────────────────────
 def make_meme_url(template, top_text, bottom_text):
-    """Создаёт URL для memegen.link с правильным кодированием"""
-    import urllib.parse
-    top = urllib.parse.quote(top_text or "_", safe="")
-    bottom = urllib.parse.quote(bottom_text or "_", safe="")
+    """Создаёт URL для memegen.link"""
+    top = "hello"
+    bottom = "world"
     return f"https://api.memegen.link/images/{template}/{top}/{bottom}.jpg"
 def send_template_meme(bot_instance, chat_id, reply_to=None):
     template = random.choice(MEME_TEMPLATES)
