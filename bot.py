@@ -293,10 +293,17 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
 # ─── Микс ─────────────────────────────────────────────────────────────────────
 def mix_messages(chat_id):
     msgs = _load(chat_id, "messages")
-    if len(msgs) < 2: return random.choice(EMPTY_PHRASES)
-    a, b = random.choice(msgs).split(), random.choice(msgs).split()
-    if len(a)<2 or len(b)<2: return random.choice(EMPTY_PHRASES)
-    return " ".join(a[:len(a)//2] + b[len(b)//2:])
+    if len(msgs) < 2:
+        return random.choice(EMPTY_PHRASES)
+    msg1 = random.choice(msgs)
+    msg2 = random.choice(msgs)
+    words1 = msg1.split()
+    words2 = msg2.split()
+    if len(words1) < 3 or len(words2) < 3:
+        return random.choice(EMPTY_PHRASES)
+    half1 = words1[:len(words1)//2]
+    half2 = words2[len(words2)//2:]
+    return " ".join(half1 + half2)
 
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
@@ -683,7 +690,15 @@ def handle_message(message):
     if any(w in text.lower() for w in ["лолыч","лолич"]) and random.random() < extras[2]:
         clean=text.lower()
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
-        bot.reply_to(message, absurd_word_salad(cid, clean)); return
+        if random.random() < 0.25:
+            # 25% — ИИ
+            answer = ask_ai(clean or "скажи что-нибудь", cid)
+            if answer: bot.reply_to(message, answer)
+            else: bot.reply_to(message, absurd_word_salad(cid, clean))
+        else:
+            # 75% — Markov
+            bot.reply_to(message, absurd_word_salad(cid, clean))
+        return
     
     if has_mat(text) and not no_mat:
         if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return
