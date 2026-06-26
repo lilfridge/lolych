@@ -11,23 +11,21 @@ import textwrap
 import logging
 from gtts import gTTS
 
-# ─── Логирование ───────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ─── Конфиг ────────────────────────────────────────────────────────────────────
 TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
-# Уровни: (авто-ответ, стих, мем, войс, дем, мат, стик, random_chance)
+# (стих, мем, войс, дем, мат, стик, random_chance)
 LEVELS = {
-    1: (1000, 2000, 2000, 2000, 3000, 1000, 2000, 0.0),
-    2: (300, 500, 500, 500, 800, 300, 500, 0.03),
-    3: (80, 100, 100, 100, 150, 80, 100, 0.30),
+    1: (2000, 2000, 2000, 3000, 1000, 2000, 0.005),
+    2: (500, 500, 500, 800, 300, 500, 0.03),
+    3: (100, 100, 100, 150, 80, 100, 0.30),
 }
 
-# Доп. шансы: (реакция_на_мат, мат_войс_каждые_N, кто_шанс, лолыч_шанс, фото_реакция)
+# (реакция_на_мат, мат_войс_каждые_N, кто_шанс, лолыч_шанс, фото_реакция)
 LEVEL_EXTRAS = {
     1: (0.01, 30, 0.05, 0.30, 0.05),
     2: (0.03, 15, 0.20, 0.60, 0.15),
@@ -90,7 +88,7 @@ def _load(chat_id, key):
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
         default = {} if key in ("users","counter","settings") else []
-        if key == "counter": default = {"msgs":0,"reply":0,"meme":0,"voice":0,"mat":0,"mat_voice":0,"dem":0,"stick":0}
+        if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"mat_voice":0,"dem":0,"stick":0}
         if key == "settings": default = {"level":1,"muted":False}
         _cache[cache_key] = default
         return default
@@ -192,7 +190,6 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     result = [random.choice(pool) for _ in range(length)]
     text = " ".join(result)
     if random.random() < 0.1: text = text.upper()
-    if random.random() < 0.3: text += random.choice(["?","!","??",""])
     return text.strip()
 
 # ─── Голосовые ────────────────────────────────────────────────────────────────
@@ -215,13 +212,17 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
     return False
 
 def send_mat_voice(bot_instance, chat_id, reply_to=None):
-    v = generate_voice(" ".join(random.choices(MAT, k=random.randint(3,6))).upper())
+    text = " ".join(random.choices(MAT, k=random.randint(3,6))).upper()
+    log.info(f"МАТ-ВОЙС: {text}")
+    v = generate_voice(text)
     if v:
         try:
             if reply_to: bot_instance.send_voice(chat_id, v, reply_to_message_id=reply_to)
             else: bot_instance.send_voice(chat_id, v)
+            log.info("МАТ-ВОЙС ОТПРАВЛЕН!")
             return True
-        except: pass
+        except Exception as e:
+            log.error(f"МАТ-ВОЙС ОШИБКА: {e}")
     return False
 
 # ─── Микс ─────────────────────────────────────────────────────────────────────
@@ -405,16 +406,15 @@ def cmd_unmute(message):
     bot.reply_to(message, "🔈 Проснулся!")
 
 @bot.message_handler(commands=["mix"])
-def cmd_mix(m):
-    bot.send_message(m.chat.id, mix_messages(m.chat.id))
+def cmd_mix(m): bot.send_message(m.chat.id, mix_messages(m.chat.id))
 
 @bot.message_handler(commands=["poem","стих"])
-def cmd_poem(m):
-    bot.send_message(m.chat.id, f"🎭\n{make_poem(m.chat.id)}")
+def cmd_poem(m): bot.send_message(m.chat.id, f"🎭\n{make_poem(m.chat.id)}")
 
 @bot.message_handler(commands=["meme","мем"])
 def cmd_meme(m):
     if not send_template_meme(bot, m.chat.id): bot.reply_to(m, "не смог")
+
 @bot.message_handler(commands=["dem","дем"])
 def cmd_dem(m):
     a = m.text.split(maxsplit=1); txt = a[1] if len(a)>1 else None
@@ -486,7 +486,7 @@ def handle_message(message):
     extras = LEVEL_EXTRAS.get(lv, LEVEL_EXTRAS[1])
     
     c=get_counter(cid)
-    for k in ["msgs","reply","meme","voice","mat","dem","stick"]: c[k]=c.get(k,0)+1
+    for k in ["msgs","meme","voice","mat","dem","stick"]: c[k]=c.get(k,0)+1
     
     # «Кто»
     if "кто" in text.lower().split() and random.random() < extras[2]:
@@ -502,20 +502,21 @@ def handle_message(message):
     # Мат
     if has_mat(text):
         c["mat_voice"]=c.get("mat_voice",0)+1
+        log.info(f"МАТ #{c['mat_voice']} от {name}, нужно {extras[1]} для войса")
         if c["mat_voice"] >= extras[1]:
+            log.info("ЗАПУСК МАТ-ВОЙСА!")
             c["mat_voice"]=0; save_counter(cid)
             threading.Thread(target=lambda: send_mat_voice(bot,cid,message.message_id), daemon=True).start(); return
         if random.random() < extras[0]:
             bot.reply_to(message, random.choice(MAT).upper()+"!"); return
     
     # Авто-триггеры
-    if c["mat"]>=tr[5]: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
-    if c["voice"]>=tr[3]: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
-    if c["msgs"]>=tr[1]: c["msgs"]=0; save_counter(cid); threading.Thread(target=lambda: bot.send_message(cid, f"🎭\n{make_poem(cid)}"), daemon=True).start(); return
-    if c["meme"]>=tr[2]: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
-    if c["dem"]>=tr[4] and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
-    if c["stick"]>=tr[6] and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
-    if c["reply"]>=tr[0]: c["reply"]=0; save_counter(cid); bot.reply_to(message, absurd_word_salad(cid, text)); return
+    if c["mat"]>=tr[4]: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
+    if c["voice"]>=tr[2]: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
+    if c["msgs"]>=tr[0]: c["msgs"]=0; save_counter(cid); threading.Thread(target=lambda: bot.send_message(cid, f"🎭\n{make_poem(cid)}"), daemon=True).start(); return
+    if c["meme"]>=tr[1]: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
+    if c["dem"]>=tr[3] and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
+    if c["stick"]>=tr[5] and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
     save_counter(cid)
     
     # @упоминание
@@ -523,7 +524,7 @@ def handle_message(message):
         bot.reply_to(message, absurd_word_salad(cid, text.replace(f"@{bot.get_me().username}","").strip())); return
     
     # Случайный ответ
-    if random.random() < tr[7]:
+    if random.random() < tr[6]:
         if random.random()<0.15: bot.reply_to(message, " ".join(random.choices(EMOJI, k=random.randint(1,3))))
         else: bot.reply_to(message, absurd_word_salad(cid, text))
 
