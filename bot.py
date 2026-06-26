@@ -404,11 +404,17 @@ def cmd_unmute(message):
     s=get_settings(message.chat.id); s["muted"]=False; save_settings(message.chat.id)
     bot.reply_to(message, "🔈 Проснулся!")
 
-@bot.message_handler(commands=["mix"]); def cmd_mix(m): bot.send_message(m.chat.id, mix_messages(m.chat.id))
-@bot.message_handler(commands=["poem","стих"]); def cmd_poem(m): bot.send_message(m.chat.id, f"🎭\n{make_poem(m.chat.id)}")
-@bot.message_handler(commands=["meme","мем"]); def cmd_meme(m):
-    if not send_template_meme(bot, m.chat.id): bot.reply_to(m, "не смог")
+@bot.message_handler(commands=["mix"])
+def cmd_mix(m):
+    bot.send_message(m.chat.id, mix_messages(m.chat.id))
 
+@bot.message_handler(commands=["poem","стих"])
+def cmd_poem(m):
+    bot.send_message(m.chat.id, f"🎭\n{make_poem(m.chat.id)}")
+
+@bot.message_handler(commands=["meme","мем"])
+def cmd_meme(m):
+    if not send_template_meme(bot, m.chat.id): bot.reply_to(m, "не смог")
 @bot.message_handler(commands=["dem","дем"])
 def cmd_dem(m):
     a = m.text.split(maxsplit=1); txt = a[1] if len(a)>1 else None
