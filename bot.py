@@ -314,18 +314,19 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
 
 # ─── Микс ─────────────────────────────────────────────────────────────────────
 def mix_messages(chat_id):
-    # Читаем напрямую из файла, без кеша
+    # Принудительно сохраняем кеш перед чтением
+    _save(chat_id, "messages")
+    
     path = _chat_file(chat_id, "messages.json")
     if not os.path.exists(path):
-        return random.choice(EMPTY_PHRASES)
+        return "файл не найден"
     
     with open(path, "r", encoding="utf-8") as f:
         msgs = json.load(f)
     
     if len(msgs) < 2:
-        return random.choice(EMPTY_PHRASES)
+        return f"сообщений мало: {len(msgs)}"
     
-    # Берём из последних 100 сообщений
     recent = msgs[-100:]
     msg1 = random.choice(recent)
     msg2 = random.choice(recent)
@@ -334,7 +335,7 @@ def mix_messages(chat_id):
     words2 = msg2.split()
     
     if len(words1) < 3 or len(words2) < 3:
-        return random.choice(EMPTY_PHRASES)
+        return f"короткие: {msg1} | {msg2}"
     
     half1 = words1[:len(words1)//2]
     half2 = words2[len(words2)//2:]
