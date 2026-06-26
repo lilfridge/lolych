@@ -340,13 +340,13 @@ def send_template_meme(bot_instance, chat_id, reply_to=None):
             except:
                 font = ImageFont.load_default()
             
-            # Белый фон под текстом
+            # Белый фон под текстом (длиннее на 40%)
             text = "lolych"
             bbox = draw.textbbox((0, 0), text, font=font)
-            tw, th = bbox[2] - bbox[0] + 6, bbox[3] - bbox[1] + 4
+            tw = int((bbox[2] - bbox[0] + 6) * 1.4)
+            th = bbox[3] - bbox[1] + 4
             draw.rectangle([3, img.height - th - 3, 3 + tw, img.height - 3], fill=(255, 255, 255, 200))
-            draw.text((6, img.height - th - 1), text, font=font, fill=(0, 0, 0))
-            
+            draw.text((6, img.height - th - 1), text, font=font, fill=(0, 0, 0))            
             # Отправляем
             out = io.BytesIO()
             img.convert("RGB").save(out, format="JPEG")
