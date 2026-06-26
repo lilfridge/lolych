@@ -437,8 +437,8 @@ def params_menu(cid):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("📊 Стата", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
-    markup.add(InlineKeyboardButton(f"{'🔇 Без мата' if not no_mat else '🔈 С матом'}", callback_data="toggle_mat"))
-    markup.add(InlineKeyboardButton(f"{'🔇 Выкл. бота' if not muted else '🔈 Вкл. бота'}", callback_data="toggle_mute"))
+    markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
+    markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -504,10 +504,10 @@ def handle_buttons(call):
         bot.edit_message_text("🎭 <b>Стиль ИИ:</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
     elif call.data == "menu_ask":
         _ask_mode[cid] = True
-        bot.send_message(cid, "🤖 <b>Ответь на это сообщение своим вопросом</b>", parse_mode="HTML")
+        bot.edit_message_text("🤖 <b>Напиши свой вопрос в чат</b>\n(бот ответит следующим сообщением)", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_draw":
         _draw_mode[cid] = True
-        bot.send_message(cid, "🎨 <b>Ответь на это сообщение описанием картинки</b>", parse_mode="HTML")
+        bot.edit_message_text("🎨 <b>Напиши описание картинки в чат</b>\n(бот нарисует следующим сообщением)", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
@@ -576,7 +576,7 @@ def handle_message(message):
     add_message(cid, text); add_user_message(cid, uid, name, text)
     
     # Режим рисования
-    if cid in _draw_mode and _draw_mode[cid] and message.reply_to_message:
+    if cid in _draw_mode and _draw_mode[cid]:
         _draw_mode[cid] = False
         bot.reply_to(message, "🎨 Рисую...")
         result = generate_image(text, cid)
@@ -586,7 +586,7 @@ def handle_message(message):
         return
     
     # Режим ИИ-ответа
-    if cid in _ask_mode and _ask_mode[cid] and message.reply_to_message:
+    if cid in _ask_mode and _ask_mode[cid]:
         _ask_mode[cid] = False
         bot.reply_to(message, "🤔 Думаю...")
         answer = ask_ai(text, cid)
