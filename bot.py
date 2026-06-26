@@ -11,7 +11,6 @@ import io
 import textwrap
 import logging
 from gtts import gTTS
-from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -21,16 +20,13 @@ OPENROUTER_KEY = "sk-or-v1-3e503e0de5273389b8a3502de8219340b0d5276b3d3414099f136
 GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
-DRAW_LIMIT = 5
 
-# (мем_мин, мем_макс, войс_мин, войс_макс, дем_мин, дем_макс, мат_мин, мат_макс, стик_мин, стик_макс, гиф_мин, гиф_макс, random_chance)
 LEVELS = {
     1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
     2: (350, 500, 600, 800, 400, 600, 500, 1000, 500, 800, 700, 1000, 0.03),
     3: (100, 250, 200, 400, 100, 300, 200, 300, 100, 200, 100, 200, 0.30),
 }
 
-# (реакция_на_мат, кто_шанс, лолыч_шанс, фото_реакция, когда_шанс)
 LEVEL_EXTRAS = {
     1: (0.01, 0.05, 0.30, 0.05, 0.05),
     2: (0.03, 0.20, 0.60, 0.15, 0.20),
@@ -102,9 +98,9 @@ KOGDA_ANSWERS = [
 
 AI_MODES = {
     "normal": "Ты — бот Лолыч. Отвечай коротко и по делу.",
-    "angry": "Ты — бот Лолыч. Ты злой и агрессивный. Отвечай грубо, с подколами и оскорблениями.",
-    "philosopher": "Ты — бот Лолыч. Ты философ. Отвечай загадками, глубокими мыслями и мудростями.",
-    "gopnik": "Ты — бот Лолыч. Ты гопник с района. Отвечай на сленге, дерзко, как пацан с района.",
+    "angry": "Ты — бот Лолыч. Ты злой и агрессивный. Отвечай грубо и с подколами.",
+    "philosopher": "Ты — бот Лолыч. Ты философ. Отвечай загадками и мудростями.",
+    "gopnik": "Ты — бот Лолыч. Ты гопник. Отвечай дерзко, на районе.",
 }
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
@@ -115,16 +111,21 @@ _my_photos = set()
 _ask_mode = {}
 _draw_mode = {}
 _clear_confirm = {}
+_rofl_mode = {}
+_kto_ai_mode = {}
+_dialog_mode = {}
+_story_mode = {}
+_dialog_codes = {}
+_dialog_history = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
     if cache_key in _cache: return _cache[cache_key]
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
-        default = {} if key in ("users","counter","settings","draw_counter") else []
+        default = {} if key in ("users","counter","settings") else []
         if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
         if key == "settings": default = {"level":1,"muted":False,"no_mat":False,"ai_mode":"normal"}
-        if key == "draw_counter": default = {"count":0,"date":""}
         _cache[cache_key] = default
         return default
     with open(path, "r", encoding="utf-8") as f: _cache[cache_key] = json.load(f)
@@ -234,29 +235,31 @@ def ask_ai(prompt, chat_id):
                 {"role": "system", "content": f"{system_prompt} Контекст чата: {context[:300]}"},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 100, "temperature": 0.9
+            "max_tokens": 150, "temperature": 0.9
         }
-        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=20)
+        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
         if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
     except: pass
     return None
 
-def generate_image(prompt, chat_id):
-    draw_data = _load(chat_id, "draw_counter")
-    if not isinstance(draw_data, dict): draw_data = {"count":0,"date":""}
-    today = datetime.now().strftime("%Y-%m-%d")
-    if draw_data.get("date") != today: draw_data = {"count":0,"date":today}
-    if draw_data["count"] >= DRAW_LIMIT:
-        _save(chat_id, "draw_counter")
-        return "limit"
+def ask_ai_with_history(chat_id, user_text):
+    """Диалог с памятью 5 сообщений"""
+    if chat_id not in _dialog_history: _dialog_history[chat_id] = []
+    _dialog_history[chat_id].append({"role": "user", "content": user_text})
+    if len(_dialog_history[chat_id]) > 5:
+        _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
     try:
+        mode = get_ai_mode(chat_id)
+        system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
         headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        data = {"model": "stability/sd-xl", "prompt": prompt, "n": 1, "size": "512x512"}
-        r = requests.post("https://openrouter.ai/api/v1/images/generations", headers=headers, json=data, timeout=30)
+        messages = [{"role": "system", "content": system_prompt}] + _dialog_history[chat_id]
+        data = {"model": "deepseek/deepseek-chat", "messages": messages, "max_tokens": 150, "temperature": 0.9}
+        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
         if r.status_code == 200:
-            draw_data["count"] += 1; draw_data["date"] = today
-            _save(chat_id, "draw_counter")
-            return r.json()["data"][0]["url"]
+            reply = r.json()["choices"][0]["message"]["content"].strip()
+            _dialog_history[chat_id].append({"role": "assistant", "content": reply})
+            if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
+            return reply
     except: pass
     return None
 
@@ -357,10 +360,8 @@ def make_imgflip_meme(template_id, texts):
 def send_template_meme(bot_instance, chat_id, reply_to=None):
     tid = random.choice(IMGFLIP_TEMPLATES)
     words = _chat_words(chat_id)
-    if not words:
-        texts = [random.choice(EMPTY_PHRASES) for _ in range(2)]
-    else:
-        texts = [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,3))]
+    if not words: texts = [random.choice(EMPTY_PHRASES) for _ in range(2)]
+    else: texts = [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,3))]
     url = make_imgflip_meme(tid, texts)
     if url:
         try:
@@ -413,6 +414,14 @@ def get_random_user(chat_id):
     u = get_users(chat_id)
     return random.choice(list(u.values()))["name"] if u else None
 
+def get_user_msgs(chat_id, name):
+    """Возвращает последние сообщения конкретного юзера"""
+    users = get_users(chat_id)
+    for uid, data in users.items():
+        if data["name"].lower() == name.lower():
+            return " ".join(data["messages"][-10:])
+    return "сообщений нет"
+
 # ─── Бот ──────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
 
@@ -456,8 +465,12 @@ def level_menu(cid):
 def ai_menu(cid):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
-    markup.add(InlineKeyboardButton("🎨 Картинка", callback_data="menu_draw"))
-    markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
+    markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
+    markup.add(InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
+    markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"))
+    markup.add(InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
+    markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
+    markup.add(InlineKeyboardButton("🎭 Стиль", callback_data="menu_style"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -481,7 +494,8 @@ def handle_new_member(message):
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
-    _ask_mode[cid] = False; _draw_mode[cid] = False
+    for d in [_ask_mode, _draw_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode]:
+        d[cid] = False
     bot.send_message(cid, "🎭 <b>Лолыч:</b>", reply_markup=main_menu(cid), parse_mode="HTML")
 
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
@@ -490,24 +504,45 @@ def handle_buttons(call):
     bot.answer_callback_query(call.id)
     cid = call.message.chat.id
     
-    if call.data == "menu_back":
-        bot.edit_message_text("🎭 <b>Лолыч:</b>", cid, call.message.message_id, reply_markup=main_menu(cid), parse_mode="HTML")
-    elif call.data == "menu_fun":
-        bot.edit_message_text("😂 <b>Развлечения:</b>", cid, call.message.message_id, reply_markup=fun_menu(), parse_mode="HTML")
-    elif call.data == "menu_params":
-        bot.edit_message_text("⚙️ <b>Параметры:</b>", cid, call.message.message_id, reply_markup=params_menu(cid), parse_mode="HTML")
-    elif call.data == "menu_ai":
-        bot.edit_message_text("🤖 <b>ИИ:</b>", cid, call.message.message_id, reply_markup=ai_menu(cid), parse_mode="HTML")
-    elif call.data == "level_menu":
-        bot.edit_message_text("⭐ <b>Уровень:</b>", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
-    elif call.data == "menu_style":
-        bot.edit_message_text("🎭 <b>Стиль ИИ:</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
-    elif call.data == "menu_ask":
+    nav = {
+        "menu_back": ("🎭 <b>Лолыч:</b>", main_menu(cid)),
+        "menu_fun": ("😂 <b>Развлечения:</b>", fun_menu()),
+        "menu_params": ("⚙️ <b>Параметры:</b>", params_menu(cid)),
+        "menu_ai": ("🤖 <b>ИИ:</b>", ai_menu(cid)),
+        "level_menu": ("⭐ <b>Уровень:</b>", level_menu(cid)),
+        "menu_style": ("🎭 <b>Стиль ИИ:</b>", style_menu(cid)),
+    }
+    
+    if call.data in nav:
+        txt, markup = nav[call.data]
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        return
+    
+    # Режимы
+    if call.data == "menu_ask":
         _ask_mode[cid] = True
-        bot.edit_message_text("🤖 <b>Напиши свой вопрос в чат</b>\n(бот ответит следующим сообщением)", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_draw":
-        _draw_mode[cid] = True
-        bot.edit_message_text("🎨 <b>Напиши описание картинки в чат</b>\n(бот нарисует следующим сообщением)", cid, call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text("🤖 <b>Напиши свой вопрос в чат</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_joke":
+        context = " ".join(_load(cid, "messages")[-50:])
+        bot.edit_message_text("😂 <b>Генерирую шутку...</b>", cid, call.message.message_id, parse_mode="HTML")
+        answer = ask_ai(f"Придумай смешную шутку на основе этого контекста чата: {context[:500]}", cid)
+        if answer: bot.send_message(cid, f"😂 {answer}")
+        else: bot.send_message(cid, "не смог придумать")
+    elif call.data == "menu_rofl":
+        _rofl_mode[cid] = True
+        bot.edit_message_text("🔥 <b>Ответь (reply) на сообщение того, кого хочешь зарофлить</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_kto_ai":
+        _kto_ai_mode[cid] = True
+        bot.edit_message_text("🎲 <b>Напиши вопрос с \"кто\" (например: кто лучший футболист)</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_dialog":
+        code = random.randint(1, 100)
+        _dialog_codes[cid] = code
+        _dialog_mode[cid] = True
+        _dialog_history[cid] = []
+        bot.edit_message_text(f"💬 <b>Диалог начат!</b>\nКод выхода: <b>{code}</b>\nЧтобы выйти, напиши это число.", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_story":
+        _story_mode[cid] = True
+        bot.edit_message_text("📖 <b>Напиши тему для истории</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
@@ -560,11 +595,6 @@ def handle_buttons(call):
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
         bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
-# ─── Команды ─────────────────────────────────────────────────────────────────
-@bot.message_handler(commands=["ask","спроси","draw","нарисуй","mode","режим","стиль","level","mute","unmute","gif","гиф","clear","очистить"])
-def cmd_redirect(m):
-    bot.reply_to(m, "Используй меню: /start")
-
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
 def handle_message(message):
@@ -575,23 +605,61 @@ def handle_message(message):
     text=message.text; name=message.from_user.first_name or "Аноним"; uid=message.from_user.id
     add_message(cid, text); add_user_message(cid, uid, name, text)
     
-    # Режим рисования
-    if cid in _draw_mode and _draw_mode[cid]:
-        _draw_mode[cid] = False
-        bot.reply_to(message, "🎨 Рисую...")
-        result = generate_image(text, cid)
-        if result == "limit": bot.send_message(cid, "жто не не, всё")
-        elif result: bot.send_photo(cid, result)
-        else: bot.send_message(cid, "не смог нарисовать")
+    # 💬 Диалог — проверка выхода
+    if cid in _dialog_mode and _dialog_mode[cid]:
+        if text.strip() == str(_dialog_codes.get(cid)):
+            _dialog_mode[cid] = False
+            _dialog_history[cid] = []
+            bot.reply_to(message, "💬 <b>Диалог завершён.</b>", parse_mode="HTML")
+            return
+    
+    # 🔥 Рофл
+    if cid in _rofl_mode and _rofl_mode[cid] and message.reply_to_message:
+        _rofl_mode[cid] = False
+        target = message.reply_to_message.from_user.first_name
+        msgs = get_user_msgs(cid, target)
+        bot.reply_to(message, "🔥 <b>Генерирую рофл...</b>", parse_mode="HTML")
+        answer = ask_ai(f"Напиши смешную историю про {target}. Вот что он писал в чате: {msgs[:500]}", cid)
+        if answer: bot.send_message(cid, f"🔥 {answer}")
+        else: bot.send_message(cid, "не смог")
         return
     
-    # Режим ИИ-ответа
+    # 🎲 Кто... (ИИ-версия)
+    if cid in _kto_ai_mode and _kto_ai_mode[cid] and "кто" in text.lower():
+        _kto_ai_mode[cid] = False
+        u = get_random_user(cid)
+        if not u: bot.reply_to(message, "никого не знаю"); return
+        msgs = get_user_msgs(cid, u)
+        bot.reply_to(message, "🎲 <b>Думаю...</b>", parse_mode="HTML")
+        answer = ask_ai(f"Ответь на вопрос: '{text}'. Выбери {u} как ответ. Объясни почему, используя эти сообщения: {msgs[:400]}. Будь смешным и убедительным.", cid)
+        if answer: bot.send_message(cid, f"🎲 {answer}")
+        else: bot.send_message(cid, f"🎲 это {u}, потому что я так сказал")
+        return
+    
+    # 🤖 ИИ ответ
     if cid in _ask_mode and _ask_mode[cid]:
         _ask_mode[cid] = False
         bot.reply_to(message, "🤔 Думаю...")
         answer = ask_ai(text, cid)
         if answer: bot.send_message(cid, answer)
         else: bot.send_message(cid, "не смог ответить")
+        return
+    
+    # 💬 Диалог
+    if cid in _dialog_mode and _dialog_mode[cid]:
+        bot.reply_to(message, "💬 Думаю...")
+        answer = ask_ai_with_history(cid, text)
+        if answer: bot.reply_to(message, answer)
+        else: bot.reply_to(message, "не смог ответить")
+        return
+    
+    # 📖 История
+    if cid in _story_mode and _story_mode[cid]:
+        _story_mode[cid] = False
+        bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
+        answer = ask_ai(f"Напиши короткую историю на тему: {text}. Будь креативным и смешным.", cid)
+        if answer: bot.send_message(cid, f"📖 {answer}")
+        else: bot.send_message(cid, "не смог")
         return
     
     no_mat = is_no_mat(cid)
