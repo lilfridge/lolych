@@ -1,4 +1,5 @@
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import markovify
 import random
 import threading
@@ -15,22 +16,26 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
+DEEPSEEK_KEY = "sk-cc4c36280c4f4398943296046ad09c86"
+GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
-# (мем, войс, дем, мат, стик, random_chance)
+# (мем, войс, дем, мат, стик, гифка, random_chance)
 LEVELS = {
-    1: (2000, 2000, 3000, 1000, 2000, 0.005),
-    2: (500, 500, 800, 300, 500, 0.03),
-    3: (100, 100, 150, 80, 100, 0.30),
+    1: (2000, 2000, 3000, 1000, 2000, 2000, 0.005),
+    2: (500, 500, 800, 300, 500, 500, 0.03),
+    3: (100, 100, 150, 80, 100, 100, 0.30),
 }
 
-# (реакция_на_мат, мат_войс_каждые_N, кто_шанс, лолыч_шанс, фото_реакция, когда_шанс)
+# (реакция_на_мат, кто_шанс, лолыч_шанс, фото_реакция, когда_шанс)
 LEVEL_EXTRAS = {
-    1: (0.01, 30, 0.05, 0.30, 0.05, 0.05),
-    2: (0.03, 15, 0.20, 0.60, 0.15, 0.20),
-    3: (0.10, 5, 0.50, 1.00, 0.40, 0.50),
+    1: (0.01, 0.05, 0.30, 0.05, 0.05),
+    2: (0.03, 0.20, 0.60, 0.15, 0.20),
+    3: (0.10, 0.50, 1.00, 0.40, 0.50),
 }
+
+DEEPSEEK_CHANCE = 0.05  # 5% шанс ответа от ИИ
 
 MAT = [
     "блять", "бля", "нахуй", "хуй", "пизда", "ебать", "сука", "пиздец",
@@ -63,7 +68,6 @@ STICKERS = [
     "https://i.postimg.cc/J0fZ8GYW/IMG-4807.png",
     "https://i.postimg.cc/fynrbjbf/IMG-4811.png",
     "https://i.postimg.cc/fWV8GP8t/IMG-4815.png",
-
 ]
 
 IMGFLIP_USER = "lilifridge"
@@ -104,7 +108,7 @@ def _load(chat_id, key):
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
         default = {} if key in ("users","counter","settings") else []
-        if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"mat_voice":0,"dem":0,"stick":0}
+        if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
         if key == "settings": default = {"level":1,"muted":False}
         _cache[cache_key] = default
         return default
@@ -200,6 +204,35 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
+# ─── DeepSeek ──────────────────────────────────────────────────────────────────
+def ask_deepseek(prompt, chat_id):
+    try:
+        context = " ".join(_load(chat_id, "messages")[-20:])
+        headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+        data = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": f"Ты — бот Лолыч, живёшь в чате. Отвечаешь коротко (1-3 предложения), в стиле сглыпы: смешно, абсурдно, дерзко. Контекст чата: {context[:500]}"},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 100,
+            "temperature": 0.9
+        }
+        r = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=data, timeout=15)
+        if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
+    except: pass
+    return None
+
+# ─── GIPHY ─────────────────────────────────────────────────────────────────────
+def get_random_gif():
+    try:
+        url = f"https://api.giphy.com/v1/gifs/random?api_key={GIPHY_KEY}&tag=meme&rating=r"
+        r = requests.get(url, timeout=10).json()
+        if r.get("data",{}).get("images",{}).get("original",{}).get("url"):
+            return r["data"]["images"]["original"]["url"]
+    except: pass
+    return None
+
 # ─── Голосовые ────────────────────────────────────────────────────────────────
 def generate_voice(text):
     try:
@@ -210,17 +243,6 @@ def generate_voice(text):
 
 def send_random_voice(bot_instance, chat_id, reply_to=None):
     text = absurd_word_salad(chat_id, length=random.randint(8,12))
-    v = generate_voice(text)
-    if v:
-        try:
-            if reply_to: bot_instance.send_voice(chat_id, v, reply_to_message_id=reply_to)
-            else: bot_instance.send_voice(chat_id, v)
-            return True
-        except: pass
-    return False
-
-def send_mat_voice(bot_instance, chat_id, reply_to=None):
-    text = " ".join(random.choices(MAT, k=random.randint(3,6))).upper()
     v = generate_voice(text)
     if v:
         try:
@@ -284,7 +306,7 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         fi = bot_instance.get_file(fid)
         dl = bot_instance.download_file(fi.file_path)
         out = make_demotivator(dl, text)
-        _my_photos.add(fid)  # не запоминаем свои творения
+        _my_photos.add(fid)
         if reply_to: bot_instance.send_photo(chat_id, out, reply_to_message_id=reply_to)
         else: bot_instance.send_photo(chat_id, out)
         return True
@@ -309,13 +331,11 @@ def send_template_meme(bot_instance, chat_id, reply_to=None):
             img_data = requests.get(url, timeout=15).content
             img = Image.open(io.BytesIO(img_data)).convert("RGBA")
             draw = ImageDraw.Draw(img)
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=14)
+            try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=14)
             except: font = ImageFont.load_default()
             text = "lolych"
             bbox = draw.textbbox((0,0), text, font=font)
             tw = int((bbox[2]-bbox[0]+6)*1.4); th = bbox[3]-bbox[1]+4
-            # По центру белого фона
             tx = 6 + (tw - (bbox[2]-bbox[0]+6)) // 2
             draw.rectangle([3, img.height-th-3, 3+tw, img.height-3], fill=(255,255,255,200))
             draw.text((tx+3, img.height-th-1), text, font=font, fill=(0,0,0))
@@ -336,7 +356,7 @@ def make_sticker(img_bytes):
         sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
         ss = min(w,h)//5; sticker = sticker.resize((ss,ss), Image.LANCZOS)
         img.paste(sticker, (random.randint(0,max(0,w-ss)), random.randint(0,max(0,h-ss))), sticker)
-    except Exception as e: log.error(f"Sticker error: {e}")
+    except: pass
     out = io.BytesIO(); img.convert("RGB").save(out, format="JPEG"); out.seek(0)
     return out
 
@@ -346,8 +366,7 @@ def send_sticker_photo(bot_instance, chat_id, reply_to=None):
     fid = random.choice(photos)
     try:
         fi = bot_instance.get_file(fid); dl = bot_instance.download_file(fi.file_path)
-        out = make_sticker(dl)
-        _my_photos.add(fid)
+        out = make_sticker(dl); _my_photos.add(fid)
         if reply_to: bot_instance.send_photo(chat_id, out, reply_to_message_id=reply_to)
         else: bot_instance.send_photo(chat_id, out)
         return True
@@ -363,12 +382,59 @@ def get_random_user(chat_id):
 bot = telebot.TeleBot(TOKEN)
 _clear_confirm = {}
 
-@bot.message_handler(commands=["start","help"])
+# ─── Стартовое меню с кнопками ───────────────────────────────────────────────
+@bot.message_handler(commands=["start"])
 def cmd_start(message):
-    bot.reply_to(message, """🎭 *Лолыч:*
-/mix • /meme • /dem • /stick • /voice
-/stats • /level 1-3 • /mute • /unmute • /clear""", parse_mode="Markdown")
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"))
+    markup.add(InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
+    markup.row(
+        InlineKeyboardButton("💬 Микс", callback_data="mix"),
+        InlineKeyboardButton("🎙 Голос", callback_data="voice")
+    )
+    markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
+    markup.row(
+        InlineKeyboardButton("📊 Статы", callback_data="stats"),
+        InlineKeyboardButton("⭐ Уровень", callback_data="level")
+    )
+    markup.row(
+        InlineKeyboardButton("🎬 Гифка", callback_data="gif"),
+        InlineKeyboardButton("🤖 ИИ ответ", callback_data="ask")
+    )
+    bot.send_message(message.chat.id, "🎭 <b>Лолыч:</b>\nВыбери что хочешь:", reply_markup=markup, parse_mode="HTML")
 
+@bot.callback_query_handler(func=lambda call: True)
+def handle_buttons(call):
+    bot.answer_callback_query(call.id)
+    cid = call.message.chat.id
+    
+    if call.data == "meme":
+        if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
+    elif call.data == "dem":
+        if not send_random_dem(bot, cid): bot.send_message(cid, "нет фото")
+    elif call.data == "mix":
+        bot.send_message(cid, mix_messages(cid))
+    elif call.data == "voice":
+        v = generate_voice(absurd_word_salad(cid))
+        if v: bot.send_voice(cid, v)
+        else: bot.send_message(cid, "не смог")
+    elif call.data == "stick":
+        if not send_sticker_photo(bot, cid): bot.send_message(cid, "нет фото")
+    elif call.data == "stats":
+        msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
+        s=get_settings(cid)
+        bot.send_message(cid, f"📊 *Хранилище:*\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• {'🔇 тишина' if s.get('muted') else '🔈 активен'}", parse_mode="Markdown")
+    elif call.data == "level":
+        lv = get_level(cid)
+        bot.send_message(cid, f"Уровень: {lv}\n/level 1-3 чтобы изменить")
+    elif call.data == "gif":
+        gif_url = get_random_gif()
+        if gif_url: bot.send_document(cid, gif_url)
+        else: bot.send_message(cid, "не нашёл гифку")
+    elif call.data == "ask":
+        bot.send_message(cid, "Напиши /ask и свой вопрос")
+
+# ─── Обычные команды ─────────────────────────────────────────────────────────
 @bot.message_handler(commands=["level"])
 def cmd_level(message):
     a = message.text.split()
@@ -427,6 +493,21 @@ def cmd_voice(m):
     if v: bot.send_voice(m.chat.id, v)
     else: bot.reply_to(m, "не смог")
 
+@bot.message_handler(commands=["gif","гиф"])
+def cmd_gif(m):
+    gif_url = get_random_gif()
+    if gif_url: bot.send_document(m.chat.id, gif_url)
+    else: bot.reply_to(m, "не нашёл гифку")
+
+@bot.message_handler(commands=["ask","спроси"])
+def cmd_ask(m):
+    question = m.text.split(maxsplit=1)
+    if len(question) < 2: bot.reply_to(m, "Напиши: /ask твой вопрос"); return
+    bot.reply_to(m, "🤔 Дай подумать...")
+    answer = ask_deepseek(question[1], m.chat.id)
+    if answer: bot.send_message(m.chat.id, answer)
+    else: bot.reply_to(m, "не смог ответить")
+
 @bot.message_handler(commands=["stats","стат"])
 def cmd_stats(m):
     cid=m.chat.id; msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
@@ -464,15 +545,15 @@ def handle_message(message):
     
     lv = get_level(cid); tr = LEVELS.get(lv, LEVELS[1]); extras = LEVEL_EXTRAS.get(lv, LEVEL_EXTRAS[1])
     c=get_counter(cid)
-    for k in ["msgs","meme","voice","mat","dem","stick"]: c[k]=c.get(k,0)+1
+    for k in ["msgs","meme","voice","mat","dem","stick","gif"]: c[k]=c.get(k,0)+1
     
     # «кто»
-    if "кто" in text.lower().split() and random.random() < extras[2]:
+    if "кто" in text.lower().split() and random.random() < extras[1]:
         u=get_random_user(cid)
         if u: bot.reply_to(message, random.choice(KTO_ANSWERS).format(user=u)); return
     
     # «когда»
-    if "когда" in text.lower().split() and random.random() < extras[5]:
+    if "когда" in text.lower().split() and random.random() < extras[4]:
         u=get_random_user(cid)
         answer = random.choice(KOGDA_ANSWERS)
         if "{user}" in answer and u: answer = answer.format(user=u)
@@ -480,23 +561,26 @@ def handle_message(message):
         bot.reply_to(message, answer); return
     
     # «лолыч»
-    if any(w in text.lower() for w in ["лолыч","лолич"]) and random.random() < extras[3]:
+    if any(w in text.lower() for w in ["лолыч","лолич"]) and random.random() < extras[2]:
         clean=text.lower()
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
         bot.reply_to(message, absurd_word_salad(cid, clean)); return
     
     # Мат
     if has_mat(text):
-        c["mat_voice"]=c.get("mat_voice",0)+1
-        if c["mat_voice"] >= extras[1]:
-            c["mat_voice"]=0; save_counter(cid)
-            threading.Thread(target=lambda: send_mat_voice(bot,cid,message.message_id), daemon=True).start(); return
         if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return
+    
+    # DeepSeek (5% шанс на обычное сообщение)
+    if random.random() < DEEPSEEK_CHANCE:
+        answer = ask_deepseek(text, cid)
+        if answer:
+            bot.reply_to(message, answer); return
     
     # Авто-триггеры
     if c["mat"]>=tr[3]: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
     if c["voice"]>=tr[1]: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
     if c["meme"]>=tr[0]: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
+    if c["gif"]>=tr[5]: c["gif"]=0; save_counter(cid); threading.Thread(target=lambda: gif_url:=get_random_gif(), daemon=True).start() or (gif_url and bot.send_document(cid, gif_url)); return
     if c["dem"]>=tr[2] and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
     if c["stick"]>=tr[4] and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
     save_counter(cid)
@@ -504,7 +588,7 @@ def handle_message(message):
     if f"@{bot.get_me().username}" in text:
         bot.reply_to(message, absurd_word_salad(cid, text.replace(f"@{bot.get_me().username}","").strip())); return
     
-    if random.random() < tr[5]:
+    if random.random() < tr[6]:
         if random.random()<0.15: bot.reply_to(message, " ".join(random.choices(EMOJI, k=random.randint(1,3))))
         else: bot.reply_to(message, absurd_word_salad(cid, text))
 
@@ -527,7 +611,7 @@ def handle_photo(message):
     elif any(w in cap for w in ["стик","stick"]):
         fi=bot.get_file(fid); dl=bot.download_file(fi.file_path)
         out=make_sticker(dl); _my_photos.add(fid); bot.send_photo(cid, out)
-    elif random.random() < extras[4]:
+    elif random.random() < extras[3]:
         bot.reply_to(message, random.choice([absurd_word_salad(cid, length=random.randint(1,10)), random.choice(EMOJI)*random.randint(1,2), "это чё такое?", "🤔"]))
 
 log.info("Лолыч проснулся!")
