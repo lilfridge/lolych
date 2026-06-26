@@ -314,18 +314,31 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
 
 # ─── Микс ─────────────────────────────────────────────────────────────────────
 def mix_messages(chat_id):
-    msgs = _load(chat_id, "messages")
+    # Читаем напрямую из файла, без кеша
+    path = _chat_file(chat_id, "messages.json")
+    if not os.path.exists(path):
+        return random.choice(EMPTY_PHRASES)
+    
+    with open(path, "r", encoding="utf-8") as f:
+        msgs = json.load(f)
+    
     if len(msgs) < 2:
         return random.choice(EMPTY_PHRASES)
-    # Берём два последних сообщения
-    msg1 = random.choice(msgs[-100:]) if len(msgs) > 100 else random.choice(msgs)
-    msg2 = random.choice(msgs[-100:]) if len(msgs) > 100 else random.choice(msgs)
+    
+    # Берём из последних 100 сообщений
+    recent = msgs[-100:]
+    msg1 = random.choice(recent)
+    msg2 = random.choice(recent)
+    
     words1 = msg1.split()
     words2 = msg2.split()
+    
     if len(words1) < 3 or len(words2) < 3:
         return random.choice(EMPTY_PHRASES)
+    
     half1 = words1[:len(words1)//2]
     half2 = words2[len(words2)//2:]
+    
     return " ".join(half1 + half2)
 
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
