@@ -290,9 +290,9 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
 # ─── Микс ─────────────────────────────────────────────────────────────────────
 def mix_messages(chat_id):
     msgs = _load(chat_id, "messages")
-    if len(msgs) < 2: return absurd_word_salad(chat_id)
+    if len(msgs) < 2: return random.choice(EMPTY_PHRASES)
     a, b = random.choice(msgs).split(), random.choice(msgs).split()
-    if len(a)<2 or len(b)<2: return absurd_word_salad(chat_id)
+    if len(a)<2 or len(b)<2: return random.choice(EMPTY_PHRASES)
     return " ".join(a[:len(a)//2] + b[len(b)//2:])
 
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
@@ -356,7 +356,11 @@ def make_imgflip_meme(template_id, texts):
 
 def send_template_meme(bot_instance, chat_id, reply_to=None):
     tid = random.choice(IMGFLIP_TEMPLATES)
-    texts = [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,3))]
+    words = _chat_words(chat_id)
+    if not words:
+        texts = [random.choice(EMPTY_PHRASES) for _ in range(2)]
+    else:
+        texts = [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,3))]
     url = make_imgflip_meme(tid, texts)
     if url:
         try:
@@ -414,12 +418,9 @@ bot = telebot.TeleBot(TOKEN)
 
 # ─── Меню ────────────────────────────────────────────────────────────────────
 def main_menu(cid):
-    no_mat = is_no_mat(cid); muted = is_muted(cid)
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
-        InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params")
-    )
+    markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
+    markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
     markup.add(InlineKeyboardButton("🤖 ИИ", callback_data="menu_ai"))
     return markup
 
@@ -434,10 +435,10 @@ def fun_menu():
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("📊 Статы", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
+    markup.add(InlineKeyboardButton("📊 Стата", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton(f"{'🔇 Без мата' if not no_mat else '🔈 С матом'}", callback_data="toggle_mat"))
-    markup.add(InlineKeyboardButton(f"{'🔇 Тишина' if not muted else '🔈 Включить'}", callback_data="toggle_mute"))
+    markup.add(InlineKeyboardButton(f"{'🔇 Выкл. бота' if not muted else '🔈 Вкл. бота'}", callback_data="toggle_mute"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -453,11 +454,10 @@ def level_menu(cid):
     return markup
 
 def ai_menu(cid):
-    mode = get_ai_mode(cid)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
     markup.add(InlineKeyboardButton("🎨 Картинка", callback_data="menu_draw"))
-    markup.add(InlineKeyboardButton(f"🎭 Стиль: {mode}", callback_data="menu_style"))
+    markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -504,10 +504,10 @@ def handle_buttons(call):
         bot.edit_message_text("🎭 <b>Стиль ИИ:</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
     elif call.data == "menu_ask":
         _ask_mode[cid] = True
-        bot.edit_message_text("🤖 <b>Ответь на это сообщение вопросом</b>", cid, call.message.message_id, parse_mode="HTML")
+        bot.send_message(cid, "🤖 <b>Ответь на это сообщение своим вопросом</b>", parse_mode="HTML")
     elif call.data == "menu_draw":
         _draw_mode[cid] = True
-        bot.edit_message_text("🎨 <b>Ответь на это сообщение описанием</b>", cid, call.message.message_id, parse_mode="HTML")
+        bot.send_message(cid, "🎨 <b>Ответь на это сообщение описанием картинки</b>", parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
@@ -556,9 +556,11 @@ def handle_buttons(call):
     elif call.data == "stats":
         msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
         s=get_settings(cid)
-        bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})", cid, call.message.message_id, parse_mode="HTML")
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
+        bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
-# ─── Команды (только /start) ─────────────────────────────────────────────────
+# ─── Команды ─────────────────────────────────────────────────────────────────
 @bot.message_handler(commands=["ask","спроси","draw","нарисуй","mode","режим","стиль","level","mute","unmute","gif","гиф","clear","очистить"])
 def cmd_redirect(m):
     bot.reply_to(m, "Используй меню: /start")
