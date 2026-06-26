@@ -329,12 +329,34 @@ def send_template_meme(bot_instance, chat_id, reply_to=None):
     url = make_imgflip_meme(tid, texts)
     if url:
         try:
-            if reply_to: bot_instance.send_photo(chat_id, url, reply_to_message_id=reply_to)
-            else: bot_instance.send_photo(chat_id, url)
+            # Скачиваем мем
+            img_data = requests.get(url, timeout=15).content
+            img = Image.open(io.BytesIO(img_data)).convert("RGBA")
+            draw = ImageDraw.Draw(img)
+            
+            # Водяной знак lolych в левом нижнем углу
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=14)
+            except:
+                font = ImageFont.load_default()
+            
+            # Белый фон под текстом
+            text = "lolych"
+            bbox = draw.textbbox((0, 0), text, font=font)
+            tw, th = bbox[2] - bbox[0] + 6, bbox[3] - bbox[1] + 4
+            draw.rectangle([3, img.height - th - 3, 3 + tw, img.height - 3], fill=(255, 255, 255, 200))
+            draw.text((6, img.height - th - 1), text, font=font, fill=(0, 0, 0))
+            
+            # Отправляем
+            out = io.BytesIO()
+            img.convert("RGB").save(out, format="JPEG")
+            out.seek(0)
+            if reply_to: bot_instance.send_photo(chat_id, out, reply_to_message_id=reply_to)
+            else: bot_instance.send_photo(chat_id, out)
             return True
-        except: pass
+        except Exception as e:
+            log.error(f"send_template_meme error: {e}")
     return False
-
 # ─── Стикеры ──────────────────────────────────────────────────────────────────
 def make_sticker(img_bytes):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
