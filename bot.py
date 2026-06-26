@@ -21,12 +21,14 @@ GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
+# (мем_мин, мем_макс, войс_мин, войс_макс, дем_мин, дем_макс, мат_мин, мат_макс, стик_мин, стик_макс, гиф_мин, гиф_макс, random_chance)
 LEVELS = {
     1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
     2: (350, 500, 600, 800, 400, 600, 500, 1000, 500, 800, 700, 1000, 0.03),
     3: (100, 250, 200, 400, 100, 300, 200, 300, 100, 200, 100, 200, 0.30),
 }
 
+# (реакция_на_мат, кто_шанс, лолыч_шанс, фото_реакция, когда_шанс)
 LEVEL_EXTRAS = {
     1: (0.01, 0.05, 0.30, 0.05, 0.05),
     2: (0.03, 0.20, 0.60, 0.15, 0.20),
@@ -238,6 +240,26 @@ def ask_ai(prompt, chat_id):
             "max_tokens": 150, "temperature": 0.9
         }
         r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
+        if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
+    except: pass
+    return None
+
+def ask_ai_long(prompt, chat_id):
+    """Как ask_ai, но с более длинным ответом"""
+    try:
+        context = " ".join(_load(chat_id, "messages")[-20:])
+        mode = get_ai_mode(chat_id)
+        system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
+        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
+        data = {
+            "model": "deepseek/deepseek-chat",
+            "messages": [
+                {"role": "system", "content": f"{system_prompt} Контекст чата: {context[:300]}"},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 400, "temperature": 0.9
+        }
+        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=30)
         if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
     except: pass
     return None
@@ -664,7 +686,7 @@ def handle_message(message):
     if cid in _story_mode and _story_mode[cid]:
         _story_mode[cid] = False
         bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Напиши короткую историю на тему: {text}. Будь креативным и смешным.", cid)
+        answer = ask_ai_long(f"Напиши интересную историю на тему: {text}. На 3-5 предложений, с сюжетом и неожиданной концовкой.", cid)
         if answer: bot.send_message(cid, f"📖 {answer}")
         else: bot.send_message(cid, "не смог")
         return
@@ -691,12 +713,10 @@ def handle_message(message):
         clean=text.lower()
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
         if random.random() < 0.25:
-            # 25% — ИИ
             answer = ask_ai(clean or "скажи что-нибудь", cid)
             if answer: bot.reply_to(message, answer)
             else: bot.reply_to(message, absurd_word_salad(cid, clean))
         else:
-            # 75% — Markov
             bot.reply_to(message, absurd_word_salad(cid, clean))
         return
     
