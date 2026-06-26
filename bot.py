@@ -317,8 +317,9 @@ def mix_messages(chat_id):
     msgs = _load(chat_id, "messages")
     if len(msgs) < 2:
         return random.choice(EMPTY_PHRASES)
-    msg1 = random.choice(msgs)
-    msg2 = random.choice(msgs)
+    # Берём два последних сообщения
+    msg1 = random.choice(msgs[-100:]) if len(msgs) > 100 else random.choice(msgs)
+    msg2 = random.choice(msgs[-100:]) if len(msgs) > 100 else random.choice(msgs)
     words1 = msg1.split()
     words2 = msg2.split()
     if len(words1) < 3 or len(words2) < 3:
@@ -562,7 +563,7 @@ def handle_buttons(call):
         bot.edit_message_text("🔥 <b>Ответь (reply) на сообщение того, кого хочешь зарофлить</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_kto_ai":
         _kto_ai_mode[cid] = True
-        bot.edit_message_text("🎲 <b>Напиши вопрос с \"кто\" (например: кто лучший футболист)</b>", cid, call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text("🎲 <b>Напиши вопрос с \"кто\"</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_dialog":
         code = random.randint(1, 100)
         _dialog_codes[cid] = code
@@ -686,7 +687,7 @@ def handle_message(message):
     if cid in _story_mode and _story_mode[cid]:
         _story_mode[cid] = False
         bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
-        answer = ask_ai_long(f"Напиши интересную историю на тему: {text}. На 3-5 предложений, с сюжетом и неожиданной концовкой.", cid)
+        answer = ask_ai_long(f"Напиши абсурдную, безумную историю на тему: {text}. Пусть будет странно, смешно и непредсказуемо. Пиши много предложений. Персонажи пусть творят дичь. Концовка должна быть неожиданной и безумной.", cid)
         if answer: bot.send_message(cid, f"📖 {answer}")
         else: bot.send_message(cid, "не смог")
         return
