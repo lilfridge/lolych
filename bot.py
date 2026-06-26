@@ -11,6 +11,7 @@ import io
 import textwrap
 import logging
 from gtts import gTTS
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -20,12 +21,13 @@ OPENROUTER_KEY = "sk-or-v1-3e503e0de5273389b8a3502de8219340b0d5276b3d3414099f136
 GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
+DRAW_LIMIT = 5
 
-# (мем, войс, дем, мат, стик, гифка, random_chance)
+# (мем_мин, мем_макс, войс_мин, войс_макс, дем_мин, дем_макс, мат_мин, мат_макс, стик_мин, стик_макс, гиф_мин, гиф_макс, random_chance)
 LEVELS = {
-    1: (2000, 2000, 3000, 1000, 2000, 2000, 0.005),
-    2: (500, 500, 800, 300, 500, 500, 0.03),
-    3: (100, 100, 150, 80, 100, 100, 0.30),
+    1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
+    2: (350, 500, 600, 800, 400, 600, 500, 1000, 500, 800, 700, 1000, 0.03),
+    3: (100, 250, 200, 400, 100, 300, 200, 300, 100, 200, 100, 200, 0.30),
 }
 
 # (реакция_на_мат, кто_шанс, лолыч_шанс, фото_реакция, когда_шанс)
@@ -45,7 +47,9 @@ MAT = [
 ]
 
 EMOJI = ["💀","🗿","😭","🤡","👀","🔥","😐","💅","🤨","😤","🥶","🤙","🦧",
-         "🤯","💩","🙈","🤪","🤮","😬","🥴","👻"]
+         "🤯","💩","🙈","🤪","🤮","😬","🥴","👻","🫠","🫃","🧌","🫵","☠️","👺","💢","🔞","🤬"]
+
+EMPTY_PHRASES = ["жто не не", "67", "WTF", "🥶", "🗿", "💀", "🤡", "а где слова", "пустота...", "🫠", "ой всё"]
 
 STICKERS = [
     "https://i.postimg.cc/pXzFLvS7/Pngtree-black-gradient-3d-number-67-5994973.png",
@@ -96,20 +100,31 @@ KOGDA_ANSWERS = [
     "после того как {user} поумнеет",
 ]
 
+AI_MODES = {
+    "normal": "Ты — бот Лолыч. Отвечай коротко и по делу.",
+    "angry": "Ты — бот Лолыч. Ты злой и агрессивный. Отвечай грубо, с подколами и оскорблениями.",
+    "philosopher": "Ты — бот Лолыч. Ты философ. Отвечай загадками, глубокими мыслями и мудростями.",
+    "gopnik": "Ты — бот Лолыч. Ты гопник с района. Отвечай на сленге, дерзко, как пацан с района.",
+}
+
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
 _cache = {}
 _my_photos = set()
+_ask_mode = {}
+_draw_mode = {}
+_clear_confirm = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
     if cache_key in _cache: return _cache[cache_key]
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
-        default = {} if key in ("users","counter","settings") else []
+        default = {} if key in ("users","counter","settings","draw_counter") else []
         if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
-        if key == "settings": default = {"level":1,"muted":False}
+        if key == "settings": default = {"level":1,"muted":False,"no_mat":False,"ai_mode":"normal"}
+        if key == "draw_counter": default = {"count":0,"date":""}
         _cache[cache_key] = default
         return default
     with open(path, "r", encoding="utf-8") as f: _cache[cache_key] = json.load(f)
@@ -163,6 +178,8 @@ def get_settings(chat_id): return _load(chat_id, "settings")
 def save_settings(chat_id): _save(chat_id, "settings")
 def get_level(chat_id): return get_settings(chat_id).get("level",1)
 def is_muted(chat_id): return get_settings(chat_id).get("muted",False)
+def is_no_mat(chat_id): return get_settings(chat_id).get("no_mat",False)
+def get_ai_mode(chat_id): return get_settings(chat_id).get("ai_mode","normal")
 def get_counter(chat_id): return _load(chat_id, "counter")
 def save_counter(chat_id): _save(chat_id, "counter")
 
@@ -190,47 +207,64 @@ def absurd_word_salad(chat_id, source_text="", length=None):
         if r < 0.6: length = random.randint(1,3)
         elif r < 0.9: length = random.randint(4,7)
         else: length = random.randint(8,10)
+    pool = _chat_words(chat_id)
+    if source_text: pool.extend(w.strip(".,!?:;\"'()«»") for w in source_text.split() if len(w)>1)
+    if not pool: return random.choice(EMPTY_PHRASES)
     if random.random() < 0.5:
         phrase = _random_phrase(chat_id)
         if phrase:
             words = phrase.split()
             if len(words) > length: phrase = " ".join(words[:length])
             return phrase.strip()
-    pool = _chat_words(chat_id)
-    if source_text: pool.extend(w.strip(".,!?:;\"'()«»") for w in source_text.split() if len(w)>1)
-    if not pool: return random.choice(EMOJI)
     result = [random.choice(pool) for _ in range(length)]
     text = " ".join(result)
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
-# ─── OpenRouter (DeepSeek) ─────────────────────────────────────────────────────
+# ─── OpenRouter ─────────────────────────────────────────────────────────────────
 def ask_ai(prompt, chat_id):
     try:
         context = " ".join(_load(chat_id, "messages")[-20:])
+        mode = get_ai_mode(chat_id)
+        system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
         headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
         data = {
             "model": "deepseek/deepseek-chat",
             "messages": [
-                {"role": "system", "content": f"Ты — бот Лолыч в чате. Отвечай коротко (1-3 предложения), смешно и дерзко. Контекст чата: {context[:300]}"},
+                {"role": "system", "content": f"{system_prompt} Контекст чата: {context[:300]}"},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 100,
-            "temperature": 0.9
+            "max_tokens": 100, "temperature": 0.9
         }
         r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=20)
         if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
-        log.error(f"OpenRouter error: {r.status_code} {r.text}")
-    except Exception as e: log.error(f"OpenRouter exception: {e}")
+    except: pass
+    return None
+
+def generate_image(prompt, chat_id):
+    draw_data = _load(chat_id, "draw_counter")
+    if not isinstance(draw_data, dict): draw_data = {"count":0,"date":""}
+    today = datetime.now().strftime("%Y-%m-%d")
+    if draw_data.get("date") != today: draw_data = {"count":0,"date":today}
+    if draw_data["count"] >= DRAW_LIMIT:
+        _save(chat_id, "draw_counter")
+        return "limit"
+    try:
+        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
+        data = {"model": "stability/sd-xl", "prompt": prompt, "n": 1, "size": "512x512"}
+        r = requests.post("https://openrouter.ai/api/v1/images/generations", headers=headers, json=data, timeout=30)
+        if r.status_code == 200:
+            draw_data["count"] += 1; draw_data["date"] = today
+            _save(chat_id, "draw_counter")
+            return r.json()["data"][0]["url"]
+    except: pass
     return None
 
 # ─── GIPHY ─────────────────────────────────────────────────────────────────────
 def get_random_gif():
     try:
-        url = f"https://api.giphy.com/v1/gifs/random?api_key={GIPHY_KEY}&tag=meme&rating=r"
-        r = requests.get(url, timeout=10).json()
-        if r.get("data",{}).get("images",{}).get("original",{}).get("url"):
-            return r["data"]["images"]["original"]["url"]
+        r = requests.get(f"https://api.giphy.com/v1/gifs/random?api_key={GIPHY_KEY}&tag=meme&rating=r", timeout=10).json()
+        if r.get("data",{}).get("images",{}).get("original",{}).get("url"): return r["data"]["images"]["original"]["url"]
     except: pass
     return None
 
@@ -279,8 +313,7 @@ def _find_serif_font(size):
 def make_demotivator(img_bytes, text):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     w, h = img.size
-    if w>500 or h>500:
-        r = min(500/w, 500/h); img = img.resize((int(w*r), int(h*r)), Image.LANCZOS); w, h = img.size
+    if w>500 or h>500: r = min(500/w, 500/h); img = img.resize((int(w*r), int(h*r)), Image.LANCZOS); w, h = img.size
     border=10; th=80
     cw, ch = w+border*2, h+border*2+th+border
     canvas = Image.new("RGB",(cw,ch),"black")
@@ -304,10 +337,8 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
     fid = random.choice(photos)
     text = custom_text or absurd_word_salad(chat_id, length=random.randint(3,8))
     try:
-        fi = bot_instance.get_file(fid)
-        dl = bot_instance.download_file(fi.file_path)
-        out = make_demotivator(dl, text)
-        _my_photos.add(fid)
+        fi = bot_instance.get_file(fid); dl = bot_instance.download_file(fi.file_path)
+        out = make_demotivator(dl, text); _my_photos.add(fid)
         if reply_to: bot_instance.send_photo(chat_id, out, reply_to_message_id=reply_to)
         else: bot_instance.send_photo(chat_id, out)
         return True
@@ -337,7 +368,7 @@ def send_template_meme(bot_instance, chat_id, reply_to=None):
             text = "lolych"
             bbox = draw.textbbox((0,0), text, font=font)
             tw = int((bbox[2]-bbox[0]+6)*1.4); th = bbox[3]-bbox[1]+4
-            tx = 6 + (tw - (bbox[2]-bbox[0]+6)) // 2
+            tx = 6 + (tw - (bbox[2]-bbox[0]+6))//2
             draw.rectangle([3, img.height-th-3, 3+tw, img.height-3], fill=(255,255,255,200))
             draw.text((tx+3, img.height-th-1), text, font=font, fill=(0,0,0))
             out = io.BytesIO(); img.convert("RGB").save(out, format="JPEG"); out.seek(0)
@@ -351,9 +382,8 @@ def send_template_meme(bot_instance, chat_id, reply_to=None):
 def make_sticker(img_bytes):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
     w, h = img.size
-    sticker_url = random.choice(STICKERS)
     try:
-        sticker_data = requests.get(sticker_url, timeout=10).content
+        sticker_data = requests.get(random.choice(STICKERS), timeout=10).content
         sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
         ss = min(w,h)//5; sticker = sticker.resize((ss,ss), Image.LANCZOS)
         img.paste(sticker, (random.randint(0,max(0,w-ss)), random.randint(0,max(0,h-ss))), sticker)
@@ -381,52 +411,33 @@ def get_random_user(chat_id):
 
 # ─── Бот ──────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
-_clear_confirm = {}
 
-# ─── Приветствие при добавлении ──────────────────────────────────────────────
-@bot.message_handler(content_types=["new_chat_members"])
-def handle_new_member(message):
-    for member in message.new_chat_members:
-        if member.username == bot.get_me().username:
-            bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>", parse_mode="HTML")
-
-# ─── Главное меню ────────────────────────────────────────────────────────────
-def main_menu():
+# ─── Меню ────────────────────────────────────────────────────────────────────
+def main_menu(cid):
+    no_mat = is_no_mat(cid); muted = is_muted(cid)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
-        InlineKeyboardButton("📊 Статистика", callback_data="menu_stats")
+        InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params")
     )
-    markup.add(
-        InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"),
-        InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear")
-    )
+    markup.add(InlineKeyboardButton("🤖 ИИ", callback_data="menu_ai"))
     return markup
 
 def fun_menu():
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("🖼 Мем", callback_data="meme"),
-        InlineKeyboardButton("😔 Демотиватор", callback_data="dem")
-    )
-    markup.add(
-        InlineKeyboardButton("🎭 Стикер", callback_data="stick"),
-        InlineKeyboardButton("🎬 Гифка", callback_data="gif")
-    )
-    markup.add(
-        InlineKeyboardButton("💬 Микс", callback_data="mix"),
-        InlineKeyboardButton("🎙 Голос", callback_data="voice")
-    )
+    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
+    markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("🎬 Гифка", callback_data="gif"))
+    markup.add(InlineKeyboardButton("💬 Микс", callback_data="mix"), InlineKeyboardButton("🎙 Голос", callback_data="voice"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
-def stats_menu(cid):
-    lv = get_level(cid)
-    markup = InlineKeyboardMarkup(row_width=3)
-    markup.add(
-        InlineKeyboardButton("📊 Статы", callback_data="stats"),
-        InlineKeyboardButton("⭐ Уровень", callback_data="level_menu")
-    )
+def params_menu(cid):
+    no_mat = is_no_mat(cid); muted = is_muted(cid)
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton("📊 Статы", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
+    markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
+    markup.add(InlineKeyboardButton(f"{'🔇 Без мата' if not no_mat else '🔈 С матом'}", callback_data="toggle_mat"))
+    markup.add(InlineKeyboardButton(f"{'🔇 Тишина' if not muted else '🔈 Включить'}", callback_data="toggle_mute"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -438,43 +449,72 @@ def level_menu(cid):
         label = f"{'✅ ' if i==lv else ''}{i} ({ {1:'молчун',2:'редко',3:'часто'}[i]})"
         btns.append(InlineKeyboardButton(label, callback_data=f"setlevel_{i}"))
     markup.add(*btns)
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_stats"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return markup
 
+def ai_menu(cid):
+    mode = get_ai_mode(cid)
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
+    markup.add(InlineKeyboardButton("🎨 Картинка", callback_data="menu_draw"))
+    markup.add(InlineKeyboardButton(f"🎭 Стиль: {mode}", callback_data="menu_style"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+    return markup
+
+def style_menu(cid):
+    mode = get_ai_mode(cid)
+    markup = InlineKeyboardMarkup(row_width=2)
+    for key, label in [("normal","Обычный"),("angry","Злой"),("philosopher","Философ"),("gopnik","Гопник")]:
+        mark = "✅ " if mode==key else ""
+        markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
+    return markup
+
+# ─── Приветствие ─────────────────────────────────────────────────────────────
+@bot.message_handler(content_types=["new_chat_members"])
+def handle_new_member(message):
+    for member in message.new_chat_members:
+        if member.username == bot.get_me().username:
+            bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>", parse_mode="HTML")
+
+# ─── Старт ──────────────────────────────────────────────────────────────────
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
-    bot.send_message(message.chat.id, "🎭 <b>Лолыч:</b>\nВыбери что хочешь:", reply_markup=main_menu(), parse_mode="HTML")
+    cid = message.chat.id
+    _ask_mode[cid] = False; _draw_mode[cid] = False
+    bot.send_message(cid, "🎭 <b>Лолыч:</b>", reply_markup=main_menu(cid), parse_mode="HTML")
 
+# ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
     bot.answer_callback_query(call.id)
     cid = call.message.chat.id
     
-    # Навигация
     if call.data == "menu_back":
-        bot.edit_message_text("🎭 <b>Лолыч:</b>\nВыбери что хочешь:", cid, call.message.message_id, reply_markup=main_menu(), parse_mode="HTML")
-        return
+        bot.edit_message_text("🎭 <b>Лолыч:</b>", cid, call.message.message_id, reply_markup=main_menu(cid), parse_mode="HTML")
     elif call.data == "menu_fun":
         bot.edit_message_text("😂 <b>Развлечения:</b>", cid, call.message.message_id, reply_markup=fun_menu(), parse_mode="HTML")
-        return
-    elif call.data == "menu_stats":
-        bot.edit_message_text("📊 <b>Статистика:</b>", cid, call.message.message_id, reply_markup=stats_menu(cid), parse_mode="HTML")
-        return
+    elif call.data == "menu_params":
+        bot.edit_message_text("⚙️ <b>Параметры:</b>", cid, call.message.message_id, reply_markup=params_menu(cid), parse_mode="HTML")
+    elif call.data == "menu_ai":
+        bot.edit_message_text("🤖 <b>ИИ:</b>", cid, call.message.message_id, reply_markup=ai_menu(cid), parse_mode="HTML")
     elif call.data == "level_menu":
-        bot.edit_message_text("⭐ <b>Выбери уровень:</b>", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
-        return
+        bot.edit_message_text("⭐ <b>Уровень:</b>", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
+    elif call.data == "menu_style":
+        bot.edit_message_text("🎭 <b>Стиль ИИ:</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
     elif call.data == "menu_ask":
-        bot.send_message(cid, "Напиши /ask и свой вопрос")
-        return
+        _ask_mode[cid] = True
+        bot.edit_message_text("🤖 <b>Ответь на это сообщение вопросом</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_draw":
+        _draw_mode[cid] = True
+        bot.edit_message_text("🎨 <b>Ответь на это сообщение описанием</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("✅ Да, удалить", callback_data="clear_yes"), InlineKeyboardButton("❌ Отмена", callback_data="menu_back"))
-        bot.edit_message_text("⚠️ <b>Удалить всю память чата?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-        return
+        markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
+        bot.edit_message_text("⚠️ <b>Удалить память?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_yes":
         if cid in _clear_confirm and _clear_confirm[cid]:
-            global _markov_models, _markov_dirty
             for k in ["messages","users","photos","counter"]:
                 p = _chat_file(cid, f"{k}.json")
                 if os.path.exists(p): os.remove(p)
@@ -483,21 +523,26 @@ def handle_buttons(call):
             if cid in _markov_models: del _markov_models[cid]
             if cid in _markov_dirty: _markov_dirty[cid] = True
             _clear_confirm[cid] = False
-            bot.edit_message_text("🧹 <b>Память очищена!</b>", cid, call.message.message_id, parse_mode="HTML")
-        return
+            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "toggle_mat":
+        s = get_settings(cid); s["no_mat"] = not s.get("no_mat", False); save_settings(cid)
+        bot.edit_message_text("⚙️ <b>Параметры:</b>", cid, call.message.message_id, reply_markup=params_menu(cid), parse_mode="HTML")
+    elif call.data == "toggle_mute":
+        s = get_settings(cid); s["muted"] = not s.get("muted", False); save_settings(cid)
+        bot.edit_message_text("⚙️ <b>Параметры:</b>", cid, call.message.message_id, reply_markup=params_menu(cid), parse_mode="HTML")
     elif call.data.startswith("setlevel_"):
         lv = int(call.data.split("_")[1])
         s = get_settings(cid); s["level"] = lv; save_settings(cid)
-        bot.edit_message_text(f"⭐ <b>Уровень: {lv}</b> ({ {1:'молчун',2:'редко',3:'часто'}[lv]})", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
-        return
-    
-    # Действия
-    if call.data == "meme":
+        bot.edit_message_text(f"⭐ <b>Уровень: {lv}</b>", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
+    elif call.data.startswith("style_"):
+        mode = call.data.split("_")[1]
+        s = get_settings(cid); s["ai_mode"] = mode; save_settings(cid)
+        bot.edit_message_text(f"🎭 <b>Стиль: {mode}</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
+    elif call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
         if not send_random_dem(bot, cid): bot.send_message(cid, "нет фото")
-    elif call.data == "mix":
-        bot.send_message(cid, mix_messages(cid))
+    elif call.data == "mix": bot.send_message(cid, mix_messages(cid))
     elif call.data == "voice":
         v = generate_voice(absurd_word_salad(cid))
         if v: bot.send_voice(cid, v)
@@ -511,57 +556,12 @@ def handle_buttons(call):
     elif call.data == "stats":
         msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
         s=get_settings(cid)
-        bot.send_message(cid, f"📊 *Хранилище:*\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• {'🔇 тишина' if s.get('muted') else '🔈 активен'}", parse_mode="Markdown")
+        bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})", cid, call.message.message_id, parse_mode="HTML")
 
-# ─── Обычные команды ─────────────────────────────────────────────────────────
-@bot.message_handler(commands=["level"])
-def cmd_level(message):
-    lv = get_level(message.chat.id)
-    bot.reply_to(message, f"Уровень: {lv}\n/level 1-3 чтобы изменить")
-
-@bot.message_handler(commands=["mute"])
-def cmd_mute(message):
-    s=get_settings(message.chat.id); s["muted"]=True; save_settings(message.chat.id)
-    bot.reply_to(message, "🔇 /unmute чтобы включить")
-
-@bot.message_handler(commands=["unmute"])
-def cmd_unmute(message):
-    s=get_settings(message.chat.id); s["muted"]=False; save_settings(message.chat.id)
-    bot.reply_to(message, "🔈 Проснулся!")
-
-@bot.message_handler(commands=["gif","гиф"])
-def cmd_gif(m):
-    gif_url = get_random_gif()
-    if gif_url: bot.send_document(m.chat.id, gif_url)
-    else: bot.reply_to(m, "не нашёл гифку")
-
-@bot.message_handler(commands=["ask","спроси"])
-def cmd_ask(m):
-    question = m.text.split(maxsplit=1)
-    if len(question) < 2: bot.reply_to(m, "Напиши: /ask твой вопрос"); return
-    bot.reply_to(m, "🤔 Дай подумать...")
-    answer = ask_ai(question[1], m.chat.id)
-    if answer: bot.send_message(m.chat.id, answer)
-    else: bot.reply_to(m, "не смог ответить")
-
-@bot.message_handler(commands=["clear","очистить"])
-def cmd_clear(m):
-    cid=m.chat.id; a=m.text.split()
-    if len(a)>1 and a[1].lower()=="yes":
-        if cid in _clear_confirm and _clear_confirm[cid]:
-            global _markov_models, _markov_dirty
-            for k in ["messages","users","photos","counter"]:
-                p=_chat_file(cid,f"{k}.json")
-                if os.path.exists(p): os.remove(p)
-            for p in ["messages","users","photos","counter"]:
-                if f"{cid}_{p}" in _cache: del _cache[f"{cid}_{p}"]
-            if cid in _markov_models: del _markov_models[cid]
-            if cid in _markov_dirty: _markov_dirty[cid]=True
-            _clear_confirm[cid]=False
-            bot.reply_to(m, "🧹 Очищено!"); return
-        else: bot.reply_to(m, "Сначала /clear"); return
-    _clear_confirm[cid]=True
-    bot.reply_to(m, "⚠️ /clear yes для подтверждения")
+# ─── Команды (только /start) ─────────────────────────────────────────────────
+@bot.message_handler(commands=["ask","спроси","draw","нарисуй","mode","режим","стиль","level","mute","unmute","gif","гиф","clear","очистить"])
+def cmd_redirect(m):
+    bot.reply_to(m, "Используй меню: /start")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
@@ -573,7 +573,29 @@ def handle_message(message):
     text=message.text; name=message.from_user.first_name or "Аноним"; uid=message.from_user.id
     add_message(cid, text); add_user_message(cid, uid, name, text)
     
-    lv = get_level(cid); tr = LEVELS.get(lv, LEVELS[1]); extras = LEVEL_EXTRAS.get(lv, LEVEL_EXTRAS[1])
+    # Режим рисования
+    if cid in _draw_mode and _draw_mode[cid] and message.reply_to_message:
+        _draw_mode[cid] = False
+        bot.reply_to(message, "🎨 Рисую...")
+        result = generate_image(text, cid)
+        if result == "limit": bot.send_message(cid, "жто не не, всё")
+        elif result: bot.send_photo(cid, result)
+        else: bot.send_message(cid, "не смог нарисовать")
+        return
+    
+    # Режим ИИ-ответа
+    if cid in _ask_mode and _ask_mode[cid] and message.reply_to_message:
+        _ask_mode[cid] = False
+        bot.reply_to(message, "🤔 Думаю...")
+        answer = ask_ai(text, cid)
+        if answer: bot.send_message(cid, answer)
+        else: bot.send_message(cid, "не смог ответить")
+        return
+    
+    no_mat = is_no_mat(cid)
+    lv = get_level(cid)
+    tr = LEVELS.get(lv, LEVELS[1])
+    extras = LEVEL_EXTRAS.get(lv, LEVEL_EXTRAS[1])
     c=get_counter(cid)
     for k in ["msgs","meme","voice","mat","dem","stick","gif"]: c[k]=c.get(k,0)+1
     
@@ -593,27 +615,33 @@ def handle_message(message):
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
         bot.reply_to(message, absurd_word_salad(cid, clean)); return
     
-    if has_mat(text):
-        if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return    
+    if has_mat(text) and not no_mat:
+        if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return
+    
     if random.random() < DEEPSEEK_CHANCE:
         answer = ask_ai(text, cid)
         if answer: bot.reply_to(message, answer); return
     
-    if c["mat"]>=tr[3]: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
-    if c["voice"]>=tr[1]: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
-    if c["meme"]>=tr[0]: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
-    if c["gif"]>=tr[5]:
-        c["gif"]=0; save_counter(cid)
-        threading.Thread(target=lambda: (lambda url: url and bot.send_document(cid, url))(get_random_gif()), daemon=True).start()
-        return
-    if c["dem"]>=tr[2] and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
-    if c["stick"]>=tr[4] and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
+    meme_trigger = random.randint(tr[0], tr[1])
+    voice_trigger = random.randint(tr[2], tr[3])
+    dem_trigger = random.randint(tr[4], tr[5])
+    mat_trigger = random.randint(tr[6], tr[7])
+    stick_trigger = random.randint(tr[8], tr[9])
+    gif_trigger = random.randint(tr[10], tr[11])
+    
+    if c["mat"]>=mat_trigger and not no_mat: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
+    if c["mat"]>=mat_trigger: c["mat"]=0; save_counter(cid)
+    if c["voice"]>=voice_trigger: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
+    if c["meme"]>=meme_trigger: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
+    if c["gif"]>=gif_trigger: c["gif"]=0; save_counter(cid); threading.Thread(target=lambda: (lambda u: u and bot.send_document(cid, u))(get_random_gif()), daemon=True).start(); return
+    if c["dem"]>=dem_trigger and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
+    if c["stick"]>=stick_trigger and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
     save_counter(cid)
     
     if f"@{bot.get_me().username}" in text:
         bot.reply_to(message, absurd_word_salad(cid, text.replace(f"@{bot.get_me().username}","").strip())); return
     
-    if random.random() < tr[6]:
+    if random.random() < tr[12]:
         if random.random()<0.15: bot.reply_to(message, " ".join(random.choices(EMOJI, k=random.randint(1,3))))
         else: bot.reply_to(message, absurd_word_salad(cid, text))
 
@@ -627,8 +655,7 @@ def handle_photo(message):
     cap=(message.caption or "").lower()
     extras = LEVEL_EXTRAS.get(get_level(cid), LEVEL_EXTRAS[1])
     
-    if any(w in cap for w in ["мем","meme"]):
-        send_template_meme(bot, cid, message.message_id)
+    if any(w in cap for w in ["мем","meme"]): send_template_meme(bot, cid, message.message_id)
     elif any(w in cap for w in ["дем","dem"]):
         fi=bot.get_file(fid); dl=bot.download_file(fi.file_path)
         out=make_demotivator(dl, absurd_word_salad(cid, length=random.randint(3,8)))
