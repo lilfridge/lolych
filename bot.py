@@ -50,30 +50,22 @@ EMOJI = ["💀","🗿","😭","🤡","👀","🔥","😐","💅","🫡","🤨","
          "🫠","🤌","😈","🧌","🫃","🤯","💩","🙈","😵","🤪","👁️","🦴","🫀","🧠",
          "🤡","👺","💢","🔞","☠️","🤮","😬","🥴","👻","🫵","🤬"]
 
-# ─── Стикеры (PNG с прозрачным фоном) ─────────────────────────────────────────
+# ─── СтикерURL) ────────────────────────────────────────────────────────────
 STICKERS = [
-    "https://i.ibb.co/0jX5Y8F/boss.png",
-    "https://i.ibb.co/7Jp3K9d/minecraft-glasses.png",
-    "https://i.ibb.co/4ZqG9Y8/fart.png",
-    "https://i.ibb.co/8zH5G3c/67.png",
-    "https://i.ibb.co/2YmL5X8/mlg.png",
-    "https://i.ibb.co/7XzG3Y8/lion.png",
-    "https://i.ibb.co/9wL5Y8F/heart.png",
-    "https://i.ibb.co/3hG9Y8F/sharingan.png",
-    "https://i.ibb.co/6ZqG9Y8/rooster.png",
-    "https://i.ibb.co/5XmL5Y8/laughing.png",
-    "https://i.ibb.co/1ZqG9Y8/supreme.png",
-    "https://i.ibb.co/0mL5Y8F/adidas.png",
-    "https://i.ibb.co/4YqG9Y8/skull.png",
-    "https://i.ibb.co/7qL5Y8F/crown.png",
-    "https://i.ibb.co/8mL5Y8F/tear.png",
-    "https://i.ibb.co/9bL5Y8F/circle.png",
-    "https://i.ibb.co/2hL5Y8F/sparkles.png",
-    "https://i.ibb.co/5nL5Y8F/fire.png",
-    "https://i.ibb.co/3pL5Y8F/moai.png",
-    "https://i.ibb.co/4kL5Y8F/terminator.png",
+    "https://i.postimg.cc/pXzFLvS7/Pngtree-black-gradient-3d-number-67-5994973.png",
+    "https://i.postimg.cc/yxXs2Lfn/584999937b7d4d76317f5ffd.png",
+    "https://i.postimg.cc/vmLhg9SW/IMG-4768.png",
+    "https://i.postimg.cc/vmNr6zt2/IMG-4772.png",
+    "https://i.postimg.cc/ydT7bfp0/IMG-4776.png",
+    "https://i.postimg.cc/brJfFqtJ/IMG-4774.png",
+    "https://i.postimg.cc/904N7090/IMG-4779.png",
+    "https://i.postimg.cc/QxTyNBhj/IMG-4780.png",
+    "https://i.postimg.cc/XvzP79Zm/IMG-4783.png",
+    "https://i.postimg.cc/0NFtqxFM/IMG-4785.png",
+    "https://i.postimg.cc/NF47LwJ6/IMG-4787.png",
+    "https://i.postimg.cc/pTBnJJDZ/IMG-4790.png",
+    "https://i.postimg.cc/wxf1xvFb/IMG-4791.png",
 ]
-
 # ─── imgflip ───────────────────────────────────────────────────────────────────
 IMGFLIP_USER = "lilifridge"
 IMGFLIP_PASS = "eMsWrri64INeGJd"
@@ -475,10 +467,10 @@ def make_sticker(img_bytes):
     try:
         sticker_data = requests.get(sticker_url, timeout=10).content
         sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
-        sticker_size = min(w, h) // 5
-        sticker = sticker.resize((sticker_size, sticker_size), Image.LANCZOS)
-        x = random.randint(0, max(0, w - sticker_size))
-        y = random.randint(0, max(0, h - sticker_size))
+        ss = min(w, h) // 5
+        sticker = sticker.resize((ss, ss), Image.LANCZOS)
+        x = random.randint(0, max(0, w - ss))
+        y = random.randint(0, max(0, h - ss))
         img.paste(sticker, (x, y), sticker)
     except Exception as e:
         log.error(f"Sticker error: {e}")
@@ -487,7 +479,6 @@ def make_sticker(img_bytes):
     img.convert("RGB").save(out, format="JPEG")
     out.seek(0)
     return out
-
 def send_sticker_photo(bot_instance, chat_id, reply_to=None):
     photos = get_photos(chat_id)
     if not photos: return False
