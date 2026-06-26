@@ -54,7 +54,6 @@ STICKERS = [
     "https://i.postimg.cc/XvzP79Zm/IMG-4783.png",
     "https://i.postimg.cc/0NFtqxFM/IMG-4785.png",
     "https://i.postimg.cc/NF47LwJ6/IMG-4787.png",
-    "https://i.postimg.cc/pTBnJJDZ/IMG-4790.png",
     "https://i.postimg.cc/wxf1xvFb/IMG-4791.png",
     "https://i.postimg.cc/zDbhzFCF/IMG-4801.png",
     "https://i.postimg.cc/9MvrRsd4/IMG-4790.png",
@@ -64,6 +63,7 @@ STICKERS = [
     "https://i.postimg.cc/J0fZ8GYW/IMG-4807.png",
     "https://i.postimg.cc/fynrbjbf/IMG-4811.png",
     "https://i.postimg.cc/fWV8GP8t/IMG-4815.png",
+
 ]
 
 IMGFLIP_USER = "lilifridge"
