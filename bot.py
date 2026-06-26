@@ -20,10 +20,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ─── Конфиг ────────────────────────────────────────────────────────────────────
-TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc
-
-"
-
+TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
 LIMITS = {
     "messages": 5000,
     "user_msgs": 700,
