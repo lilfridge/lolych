@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
-DEEPSEEK_KEY = "sk-cc4c36280c4f4398943296046ad09c86"
+OPENROUTER_KEY = "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"
 GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
@@ -35,7 +35,7 @@ LEVEL_EXTRAS = {
     3: (0.10, 0.50, 1.00, 0.40, 0.50),
 }
 
-DEEPSEEK_CHANCE = 0.05  # 5% шанс ответа от ИИ
+DEEPSEEK_CHANCE = 0.05
 
 MAT = [
     "блять", "бля", "нахуй", "хуй", "пизда", "ебать", "сука", "пиздец",
@@ -204,23 +204,24 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
-# ─── DeepSeek ──────────────────────────────────────────────────────────────────
-def ask_deepseek(prompt, chat_id):
+# ─── OpenRouter (DeepSeek) ─────────────────────────────────────────────────────
+def ask_ai(prompt, chat_id):
     try:
         context = " ".join(_load(chat_id, "messages")[-20:])
-        headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
         data = {
-            "model": "deepseek-chat",
+            "model": "deepseek/deepseek-chat",
             "messages": [
-                {"role": "system", "content": f"Ты — бот Лолыч, живёшь в чате. Отвечаешь коротко (1-3 предложения), в стиле сглыпы: смешно, абсурдно, дерзко. Контекст чата: {context[:500]}"},
+                {"role": "system", "content": f"Ты — бот Лолыч в чате. Отвечай коротко (1-3 предложения), смешно и дерзко. Контекст чата: {context[:300]}"},
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": 100,
             "temperature": 0.9
         }
-        r = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=data, timeout=15)
+        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=20)
         if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
-    except: pass
+        log.error(f"OpenRouter error: {r.status_code} {r.text}")
+    except Exception as e: log.error(f"OpenRouter exception: {e}")
     return None
 
 # ─── GIPHY ─────────────────────────────────────────────────────────────────────
@@ -382,32 +383,115 @@ def get_random_user(chat_id):
 bot = telebot.TeleBot(TOKEN)
 _clear_confirm = {}
 
-# ─── Стартовое меню с кнопками ───────────────────────────────────────────────
-@bot.message_handler(commands=["start"])
-def cmd_start(message):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"))
-    markup.add(InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
-    markup.row(
+# ─── Приветствие при добавлении ──────────────────────────────────────────────
+@bot.message_handler(content_types=["new_chat_members"])
+def handle_new_member(message):
+    for member in message.new_chat_members:
+        if member.username == bot.get_me().username:
+            bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>", parse_mode="HTML")
+
+# ─── Главное меню ────────────────────────────────────────────────────────────
+def main_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
+        InlineKeyboardButton("📊 Статистика", callback_data="menu_stats")
+    )
+    markup.add(
+        InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"),
+        InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear")
+    )
+    return markup
+
+def fun_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🖼 Мем", callback_data="meme"),
+        InlineKeyboardButton("😔 Демотиватор", callback_data="dem")
+    )
+    markup.add(
+        InlineKeyboardButton("🎭 Стикер", callback_data="stick"),
+        InlineKeyboardButton("🎬 Гифка", callback_data="gif")
+    )
+    markup.add(
         InlineKeyboardButton("💬 Микс", callback_data="mix"),
         InlineKeyboardButton("🎙 Голос", callback_data="voice")
     )
-    markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
-    markup.row(
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+    return markup
+
+def stats_menu(cid):
+    lv = get_level(cid)
+    markup = InlineKeyboardMarkup(row_width=3)
+    markup.add(
         InlineKeyboardButton("📊 Статы", callback_data="stats"),
-        InlineKeyboardButton("⭐ Уровень", callback_data="level")
+        InlineKeyboardButton("⭐ Уровень", callback_data="level_menu")
     )
-    markup.row(
-        InlineKeyboardButton("🎬 Гифка", callback_data="gif"),
-        InlineKeyboardButton("🤖 ИИ ответ", callback_data="ask")
-    )
-    bot.send_message(message.chat.id, "🎭 <b>Лолыч:</b>\nВыбери что хочешь:", reply_markup=markup, parse_mode="HTML")
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+    return markup
+
+def level_menu(cid):
+    lv = get_level(cid)
+    markup = InlineKeyboardMarkup(row_width=3)
+    btns = []
+    for i in [1,2,3]:
+        label = f"{'✅ ' if i==lv else ''}{i} ({ {1:'молчун',2:'редко',3:'часто'}[i]})"
+        btns.append(InlineKeyboardButton(label, callback_data=f"setlevel_{i}"))
+    markup.add(*btns)
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_stats"))
+    return markup
+
+@bot.message_handler(commands=["start"])
+def cmd_start(message):
+    bot.send_message(message.chat.id, "🎭 <b>Лолыч:</b>\nВыбери что хочешь:", reply_markup=main_menu(), parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
     bot.answer_callback_query(call.id)
     cid = call.message.chat.id
     
+    # Навигация
+    if call.data == "menu_back":
+        bot.edit_message_text("🎭 <b>Лолыч:</b>\nВыбери что хочешь:", cid, call.message.message_id, reply_markup=main_menu(), parse_mode="HTML")
+        return
+    elif call.data == "menu_fun":
+        bot.edit_message_text("😂 <b>Развлечения:</b>", cid, call.message.message_id, reply_markup=fun_menu(), parse_mode="HTML")
+        return
+    elif call.data == "menu_stats":
+        bot.edit_message_text("📊 <b>Статистика:</b>", cid, call.message.message_id, reply_markup=stats_menu(cid), parse_mode="HTML")
+        return
+    elif call.data == "level_menu":
+        bot.edit_message_text("⭐ <b>Выбери уровень:</b>", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
+        return
+    elif call.data == "menu_ask":
+        bot.send_message(cid, "Напиши /ask и свой вопрос")
+        return
+    elif call.data == "menu_clear":
+        _clear_confirm[cid] = True
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("✅ Да, удалить", callback_data="clear_yes"), InlineKeyboardButton("❌ Отмена", callback_data="menu_back"))
+        bot.edit_message_text("⚠️ <b>Удалить всю память чата?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        return
+    elif call.data == "clear_yes":
+        if cid in _clear_confirm and _clear_confirm[cid]:
+            global _markov_models, _markov_dirty
+            for k in ["messages","users","photos","counter"]:
+                p = _chat_file(cid, f"{k}.json")
+                if os.path.exists(p): os.remove(p)
+            for p in ["messages","users","photos","counter"]:
+                if f"{cid}_{p}" in _cache: del _cache[f"{cid}_{p}"]
+            if cid in _markov_models: del _markov_models[cid]
+            if cid in _markov_dirty: _markov_dirty[cid] = True
+            _clear_confirm[cid] = False
+            bot.edit_message_text("🧹 <b>Память очищена!</b>", cid, call.message.message_id, parse_mode="HTML")
+        return
+    elif call.data.startswith("setlevel_"):
+        lv = int(call.data.split("_")[1])
+        s = get_settings(cid); s["level"] = lv; save_settings(cid)
+        bot.edit_message_text(f"⭐ <b>Уровень: {lv}</b> ({ {1:'молчун',2:'редко',3:'часто'}[lv]})", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
+        return
+    
+    # Действия
     if call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
@@ -420,31 +504,20 @@ def handle_buttons(call):
         else: bot.send_message(cid, "не смог")
     elif call.data == "stick":
         if not send_sticker_photo(bot, cid): bot.send_message(cid, "нет фото")
-    elif call.data == "stats":
-        msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
-        s=get_settings(cid)
-        bot.send_message(cid, f"📊 *Хранилище:*\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• {'🔇 тишина' if s.get('muted') else '🔈 активен'}", parse_mode="Markdown")
-    elif call.data == "level":
-        lv = get_level(cid)
-        bot.send_message(cid, f"Уровень: {lv}\n/level 1-3 чтобы изменить")
     elif call.data == "gif":
         gif_url = get_random_gif()
         if gif_url: bot.send_document(cid, gif_url)
         else: bot.send_message(cid, "не нашёл гифку")
-    elif call.data == "ask":
-        bot.send_message(cid, "Напиши /ask и свой вопрос")
+    elif call.data == "stats":
+        msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
+        s=get_settings(cid)
+        bot.send_message(cid, f"📊 *Хранилище:*\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• {'🔇 тишина' if s.get('muted') else '🔈 активен'}", parse_mode="Markdown")
 
 # ─── Обычные команды ─────────────────────────────────────────────────────────
 @bot.message_handler(commands=["level"])
 def cmd_level(message):
-    a = message.text.split()
-    if len(a)<2: bot.reply_to(message, f"Уровень: {get_level(message.chat.id)}\n/level 1-3"); return
-    try:
-        lv = int(a[1])
-        if lv<1 or lv>3: raise ValueError
-        s = get_settings(message.chat.id); s["level"]=lv; save_settings(message.chat.id)
-        bot.reply_to(message, f"Уровень: {lv} ({ {1:'молчун',2:'редко',3:'часто'}[lv]})")
-    except: bot.reply_to(message, "/level 1, 2 или 3")
+    lv = get_level(message.chat.id)
+    bot.reply_to(message, f"Уровень: {lv}\n/level 1-3 чтобы изменить")
 
 @bot.message_handler(commands=["mute"])
 def cmd_mute(message):
@@ -455,43 +528,6 @@ def cmd_mute(message):
 def cmd_unmute(message):
     s=get_settings(message.chat.id); s["muted"]=False; save_settings(message.chat.id)
     bot.reply_to(message, "🔈 Проснулся!")
-
-@bot.message_handler(commands=["mix"])
-def cmd_mix(m): bot.send_message(m.chat.id, mix_messages(m.chat.id))
-
-@bot.message_handler(commands=["meme","мем"])
-def cmd_meme(m):
-    if not send_template_meme(bot, m.chat.id): bot.reply_to(m, "не смог")
-
-@bot.message_handler(commands=["dem","дем"])
-def cmd_dem(m):
-    a = m.text.split(maxsplit=1); txt = a[1] if len(a)>1 else None
-    if m.reply_to_message and m.reply_to_message.photo:
-        fid=m.reply_to_message.photo[-1].file_id
-        try:
-            fi=bot.get_file(fid); dl=bot.download_file(fi.file_path)
-            out=make_demotivator(dl, txt or absurd_word_salad(m.chat.id, length=random.randint(3,8)))
-            _my_photos.add(fid)
-            bot.send_photo(m.chat.id, out)
-        except: bot.reply_to(m, "не смог")
-    elif not send_random_dem(bot, m.chat.id, custom_text=txt): bot.reply_to(m, "нет фото")
-
-@bot.message_handler(commands=["stick","стик"])
-def cmd_stick(m):
-    if m.reply_to_message and m.reply_to_message.photo:
-        fid=m.reply_to_message.photo[-1].file_id
-        try:
-            fi=bot.get_file(fid); dl=bot.download_file(fi.file_path)
-            out=make_sticker(dl); _my_photos.add(fid)
-            bot.send_photo(m.chat.id, out)
-        except: bot.reply_to(m, "не смог")
-    elif not send_sticker_photo(bot, m.chat.id): bot.reply_to(m, "нет фото")
-
-@bot.message_handler(commands=["voice","войс"])
-def cmd_voice(m):
-    v=generate_voice(absurd_word_salad(m.chat.id))
-    if v: bot.send_voice(m.chat.id, v)
-    else: bot.reply_to(m, "не смог")
 
 @bot.message_handler(commands=["gif","гиф"])
 def cmd_gif(m):
@@ -504,15 +540,9 @@ def cmd_ask(m):
     question = m.text.split(maxsplit=1)
     if len(question) < 2: bot.reply_to(m, "Напиши: /ask твой вопрос"); return
     bot.reply_to(m, "🤔 Дай подумать...")
-    answer = ask_deepseek(question[1], m.chat.id)
+    answer = ask_ai(question[1], m.chat.id)
     if answer: bot.send_message(m.chat.id, answer)
     else: bot.reply_to(m, "не смог ответить")
-
-@bot.message_handler(commands=["stats","стат"])
-def cmd_stats(m):
-    cid=m.chat.id; msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
-    s=get_settings(cid)
-    bot.reply_to(m, f"📊 *Хранилище:*\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• {'🔇 тишина' if s.get('muted') else '🔈 активен'}", parse_mode="Markdown")
 
 @bot.message_handler(commands=["clear","очистить"])
 def cmd_clear(m):
@@ -547,12 +577,10 @@ def handle_message(message):
     c=get_counter(cid)
     for k in ["msgs","meme","voice","mat","dem","stick","gif"]: c[k]=c.get(k,0)+1
     
-    # «кто»
     if "кто" in text.lower().split() and random.random() < extras[1]:
         u=get_random_user(cid)
         if u: bot.reply_to(message, random.choice(KTO_ANSWERS).format(user=u)); return
     
-    # «когда»
     if "когда" in text.lower().split() and random.random() < extras[4]:
         u=get_random_user(cid)
         answer = random.choice(KOGDA_ANSWERS)
@@ -560,29 +588,22 @@ def handle_message(message):
         elif "{user}" in answer: answer = "никогда"
         bot.reply_to(message, answer); return
     
-    # «лолыч»
     if any(w in text.lower() for w in ["лолыч","лолич"]) and random.random() < extras[2]:
         clean=text.lower()
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
         bot.reply_to(message, absurd_word_salad(cid, clean)); return
     
-    # Мат
     if has_mat(text):
-        if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return
-    
-    # DeepSeek (5% шанс на обычное сообщение)
+        if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return    
     if random.random() < DEEPSEEK_CHANCE:
-        answer = ask_deepseek(text, cid)
-        if answer:
-            bot.reply_to(message, answer); return
+        answer = ask_ai(text, cid)
+        if answer: bot.reply_to(message, answer); return
     
-    # Авто-триггеры
     if c["mat"]>=tr[3]: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
     if c["voice"]>=tr[1]: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
     if c["meme"]>=tr[0]: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
     if c["gif"]>=tr[5]:
-        c["gif"]=0
-        save_counter(cid)
+        c["gif"]=0; save_counter(cid)
         threading.Thread(target=lambda: (lambda url: url and bot.send_document(cid, url))(get_random_gif()), daemon=True).start()
         return
     if c["dem"]>=tr[2] and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
