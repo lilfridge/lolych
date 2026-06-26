@@ -580,10 +580,8 @@ def handle_message(message):
     if c["mat"]>=tr[3]: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
     if c["voice"]>=tr[1]: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
     if c["meme"]>=tr[0]: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
-         if c["gif"]>=tr[5]:
-        c["gif"]=0; save_counter(cid)
-        threading.Thread(target=lambda: (url := get_random_gif()) and bot.send_document(cid, url), daemon=True).start()
-        return
+    
+if c["gif"]>=tr[5]: c["gif"]=0; save_counter(cid); threading.Thread(target=lambda: gif_url:=get_random_gif(), daemon=True).start() or (gif_url and bot.send_document(cid, gif_url)); return
     if c["dem"]>=tr[2] and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
     if c["stick"]>=tr[4] and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
     save_counter(cid)
