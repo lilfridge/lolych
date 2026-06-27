@@ -11,7 +11,6 @@ import io
 import textwrap
 import logging
 from gtts import gTTS
-from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -23,7 +22,6 @@ IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
-DRAW_LIMIT = 5
 
 LEVELS = {
     1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
@@ -118,7 +116,6 @@ def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 _cache = {}
 _my_photos = set()
 _ask_mode = {}
-_draw_mode = {}
 _clear_confirm = {}
 _rofl_mode = {}
 _kto_ai_mode = {}
@@ -134,10 +131,9 @@ def _load(chat_id, key):
     if cache_key in _cache: return _cache[cache_key]
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
-        default = {} if key in ("users","counter","settings","draw_counter") else []
+        default = {} if key in ("users","counter","settings") else []
         if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
         if key == "settings": default = {"level":1,"muted":False,"no_mat":False,"ai_mode":"normal","ai_model":"deepseek"}
-        if key == "draw_counter": default = {"count":0,"date":""}
         _cache[cache_key] = default
         return default
     with open(path, "r", encoding="utf-8") as f: _cache[cache_key] = json.load(f)
@@ -267,25 +263,6 @@ def ask_ai_with_history(chat_id, user_text):
         _dialog_history[chat_id].append({"role": "assistant", "content": reply})
         if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
     return reply
-
-def generate_image(prompt, chat_id):
-    draw_data = _load(chat_id, "draw_counter")
-    if not isinstance(draw_data, dict): draw_data = {"count":0,"date":""}
-    today = datetime.now().strftime("%Y-%m-%d")
-    if draw_data.get("date") != today: draw_data = {"count":0,"date":today}
-    if draw_data["count"] >= DRAW_LIMIT:
-        _save(chat_id, "draw_counter")
-        return "limit"
-    try:
-        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        data = {"model": "bytedance/sdxl-lightning-4step", "prompt": prompt, "n": 1, "size": "512x512"}
-        r = requests.post("https://openrouter.ai/api/v1/images/generations", headers=headers, json=data, timeout=30)
-        if r.status_code == 200:
-            draw_data["count"] += 1; draw_data["date"] = today
-            _save(chat_id, "draw_counter")
-            return r.json()["data"][0]["url"]
-    except: pass
-    return None
 
 # ─── GIPHY ─────────────────────────────────────────────────────────────────────
 def get_random_gif():
@@ -476,12 +453,14 @@ def fun_menu():
 
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
+    model = get_ai_model(cid)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("📊 Стата", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
+    markup.add(InlineKeyboardButton("🧠 Модель ИИ", callback_data="menu_model"))
     markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
-    markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
     markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
+    markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -517,24 +496,24 @@ def ai_creative_menu():
     markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
     markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
     markup.add(InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
-    markup.add(InlineKeyboardButton("🎨 Картинка", callback_data="menu_draw"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
+    return markup
+
+def model_menu(cid):
+    model = get_ai_model(cid)
+    markup = InlineKeyboardMarkup(row_width=2)
+    for key, label in [("deepseek","DeepSeek"),("gemini","Gemini"),("llama","Llama 3"),("mistral","Mistral")]:
+        mark = "✅ " if model==key else ""
+        markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return markup
 
 def style_menu(cid):
     mode = get_ai_mode(cid)
-    model = get_ai_model(cid)
     markup = InlineKeyboardMarkup(row_width=2)
-    # Стиль общения
-    markup.add(InlineKeyboardButton("💬 Стиль общения:", callback_data="noop"))
     for key, label in [("normal","Обычный"),("angry","Злой"),("philosopher","Философ"),("gopnik","Гопник")]:
         mark = "✅ " if mode==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
-    # Модель ИИ
-    markup.add(InlineKeyboardButton("🧠 Модель ИИ:", callback_data="noop"))
-    for key, label in [("deepseek","DeepSeek"),("gemini","Gemini"),("llama","Llama 3"),("mistral","Mistral")]:
-        mark = "✅ " if model==key else ""
-        markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return markup
 
@@ -549,7 +528,7 @@ def handle_new_member(message):
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
-    for d in [_ask_mode, _draw_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode]:
+    for d in [_ask_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode]:
         d[cid] = False
     bot.send_message(cid, "🎭 <b>Лолыч:</b>", reply_markup=main_menu(cid), parse_mode="HTML")
 
@@ -567,6 +546,7 @@ def handle_buttons(call):
         "menu_ai_answers": ("💬 <b>Ответы:</b>", ai_answers_menu()),
         "menu_ai_creative": ("🎨 <b>Творчество:</b>", ai_creative_menu()),
         "level_menu": ("⭐ <b>Уровень:</b>", level_menu(cid)),
+        "menu_model": ("🧠 <b>Модель ИИ:</b>", model_menu(cid)),
         "menu_style": ("🎭 <b>Стиль ИИ:</b>", style_menu(cid)),
     }
     
@@ -574,8 +554,6 @@ def handle_buttons(call):
         txt, markup = nav[call.data]
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
-    
-    if call.data == "noop": return
     
     if call.data == "menu_ask":
         _ask_mode[cid] = True
@@ -607,9 +585,6 @@ def handle_buttons(call):
     elif call.data == "menu_aipoem":
         _aipoem_mode[cid] = True
         bot.edit_message_text("🎵 <b>Напиши тему для стиха</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_draw":
-        _draw_mode[cid] = True
-        bot.edit_message_text("🎨 <b>Напиши описание картинки в чат</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
@@ -643,7 +618,7 @@ def handle_buttons(call):
     elif call.data.startswith("model_"):
         model = call.data.split("_")[1]
         s = get_settings(cid); s["ai_model"] = model; save_settings(cid)
-        bot.edit_message_text(f"🧠 <b>Модель: {model}</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
+        bot.edit_message_text(f"🧠 <b>Модель: {model}</b>", cid, call.message.message_id, reply_markup=model_menu(cid), parse_mode="HTML")
     elif call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
@@ -683,16 +658,6 @@ def handle_message(message):
             _dialog_history[cid] = []
             bot.reply_to(message, "💬 <b>Диалог завершён.</b>", parse_mode="HTML")
             return
-    
-    # 🎨 Картинка
-    if cid in _draw_mode and _draw_mode[cid]:
-        _draw_mode[cid] = False
-        bot.reply_to(message, "🎨 Рисую...")
-        result = generate_image(text, cid)
-        if result == "limit": bot.send_message(cid, "жто не не, всё")
-        elif result: bot.send_photo(cid, result)
-        else: bot.send_message(cid, "не смог нарисовать")
-        return
     
     if cid in _rofl_mode and _rofl_mode[cid] and message.reply_to_message:
         _rofl_mode[cid] = False
