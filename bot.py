@@ -35,7 +35,7 @@ LEVEL_EXTRAS = {
     3: (0.10, 0.50, 1.00, 0.40, 0.50),
 }
 
-DEEPSEEK_CHANCE = 0.05
+AI_CHANCE = 0.05
 
 MAT = [
     "блять", "бля", "нахуй", "хуй", "пизда", "ебать", "сука", "пиздец",
@@ -108,7 +108,12 @@ AI_MODELS = {
     "gemini": "google/gemini-2.0-flash",
     "llama": "meta-llama/llama-3.1-8b-instruct",
     "mistral": "mistralai/mistral-7b-instruct",
+    "gemma": "google/gemma-2-9b-it",
+    "hermes": "nousresearch/hermes-3-llama-3.1-8b",
+    "phi3": "microsoft/phi-3-mini-128k-instruct",
 }
+
+MODEL_ORDER = ["deepseek", "gemini", "llama", "mistral", "gemma", "hermes", "phi3"]
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
@@ -125,6 +130,7 @@ _aimeme_mode = {}
 _aipoem_mode = {}
 _dialog_codes = {}
 _dialog_history = {}
+_switched_model = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -231,34 +237,56 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
-# ─── OpenRouter ─────────────────────────────────────────────────────────────────
-def call_ai(messages, chat_id, max_tokens=150):
+# ─── OpenRouter с авто-переключением ───────────────────────────────────────────
+def call_ai(messages, chat_id, max_tokens=150, bot_instance=None):
     try:
         mode = get_ai_mode(chat_id)
         model_key = get_ai_model(chat_id)
-        model_name = AI_MODELS.get(model_key, "deepseek/deepseek-chat")
         system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
         headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        full_messages = [{"role": "system", "content": system_prompt}] + messages
-        data = {"model": model_name, "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
-        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
-        if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
+        
+        for attempt in range(len(MODEL_ORDER)):
+            model_name = AI_MODELS.get(model_key, "deepseek/deepseek-chat")
+            full_messages = [{"role": "system", "content": system_prompt}] + messages
+            data = {"model": model_name, "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
+            r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
+            
+            if r.status_code == 200:
+                return r.json()["choices"][0]["message"]["content"].strip()
+            elif r.status_code == 429:
+                old_model = model_key
+                current_idx = MODEL_ORDER.index(model_key) if model_key in MODEL_ORDER else 0
+                next_idx = (current_idx + 1) % len(MODEL_ORDER)
+                model_key = MODEL_ORDER[next_idx]
+                s = get_settings(chat_id)
+                s["ai_model"] = model_key
+                save_settings(chat_id)
+                log.info(f"Модель переключена: {old_model} → {model_key}")
+                # Уведомление в чат (один раз)
+                if bot_instance and chat_id not in _switched_model:
+                    _switched_model[chat_id] = True
+                    try:
+                        bot_instance.send_message(chat_id, f"🔄 {old_model} исчерпан. Переключился на {model_key}.")
+                    except: pass
+            else:
+                return None
+        return None
     except: pass
     return None
 
-def ask_ai(prompt, chat_id):
+def ask_ai(prompt, chat_id, bot_instance=None):
     context = " ".join(_load(chat_id, "messages")[-20:])
-    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 150)
+    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 150, bot_instance)
 
-def ask_ai_long(prompt, chat_id):
+def ask_ai_long(prompt, chat_id, bot_instance=None):
     context = " ".join(_load(chat_id, "messages")[-20:])
-    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 400)
+    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 400, bot_instance)
 
-def ask_ai_with_history(chat_id, user_text):
+def ask_ai_with_history(chat_id, user_text, bot_instance=None):
     if chat_id not in _dialog_history: _dialog_history[chat_id] = []
     _dialog_history[chat_id].append({"role": "user", "content": user_text})
     if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
-    reply = call_ai(_dialog_history[chat_id], chat_id, 150)
+    reply = call_ai(_dialog_history[chat_id], chat_id, 150, bot_instance)
     if reply:
         _dialog_history[chat_id].append({"role": "assistant", "content": reply})
         if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
@@ -453,7 +481,6 @@ def fun_menu():
 
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
-    model = get_ai_model(cid)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("📊 Стата", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
     markup.add(InlineKeyboardButton("🧠 Модель ИИ", callback_data="menu_model"))
@@ -502,7 +529,7 @@ def ai_creative_menu():
 def model_menu(cid):
     model = get_ai_model(cid)
     markup = InlineKeyboardMarkup(row_width=2)
-    for key, label in [("deepseek","DeepSeek"),("gemini","Gemini"),("llama","Llama 3"),("mistral","Mistral")]:
+    for key, label in [("deepseek","DeepSeek"),("gemini","Gemini"),("llama","Llama 3"),("mistral","Mistral"),("gemma","Gemma 2"),("hermes","Hermes 3"),("phi3","Phi-3")]:
         mark = "✅ " if model==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
@@ -561,7 +588,7 @@ def handle_buttons(call):
     elif call.data == "menu_joke":
         context = " ".join(_load(cid, "messages")[-50:])
         bot.edit_message_text("😂 <b>Генерирую шутку...</b>", cid, call.message.message_id, parse_mode="HTML")
-        answer = ask_ai(f"Придумай смешную шутку на основе этого контекста чата: {context[:500]}", cid)
+        answer = ask_ai(f"Придумай смешную шутку на основе этого контекста чата: {context[:500]}", cid, bot)
         if answer: bot.send_message(cid, f"😂 {answer}")
         else: bot.send_message(cid, "не смог придумать")
     elif call.data == "menu_rofl":
@@ -618,6 +645,7 @@ def handle_buttons(call):
     elif call.data.startswith("model_"):
         model = call.data.split("_")[1]
         s = get_settings(cid); s["ai_model"] = model; save_settings(cid)
+        _switched_model.pop(cid, None)
         bot.edit_message_text(f"🧠 <b>Модель: {model}</b>", cid, call.message.message_id, reply_markup=model_menu(cid), parse_mode="HTML")
     elif call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
@@ -664,7 +692,7 @@ def handle_message(message):
         target = message.reply_to_message.from_user.first_name
         msgs = get_user_msgs(cid, target)
         bot.reply_to(message, "🔥 <b>Генерирую рофл...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Напиши смешную историю про {target}. Вот что он писал в чате: {msgs[:500]}", cid)
+        answer = ask_ai(f"Напиши смешную историю про {target}. Вот что он писал в чате: {msgs[:500]}", cid, bot)
         if answer: bot.send_message(cid, f"🔥 {answer}")
         else: bot.send_message(cid, "не смог")
         return
@@ -675,7 +703,7 @@ def handle_message(message):
         if not u: bot.reply_to(message, "никого не знаю"); return
         msgs = get_user_msgs(cid, u)
         bot.reply_to(message, "🎲 <b>Думаю...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Ответь на вопрос: '{text}'. Выбери {u} как ответ. Объясни почему, используя эти сообщения: {msgs[:400]}. Будь смешным и убедительным.", cid)
+        answer = ask_ai(f"Ответь на вопрос: '{text}'. Выбери {u} как ответ. Объясни почему, используя эти сообщения: {msgs[:400]}. Будь смешным и убедительным.", cid, bot)
         if answer: bot.send_message(cid, f"🎲 {answer}")
         else: bot.send_message(cid, f"🎲 это {u}, потому что я так сказал")
         return
@@ -683,14 +711,14 @@ def handle_message(message):
     if cid in _ask_mode and _ask_mode[cid]:
         _ask_mode[cid] = False
         bot.reply_to(message, "🤔 Думаю...")
-        answer = ask_ai(text, cid)
+        answer = ask_ai(text, cid, bot)
         if answer: bot.send_message(cid, answer)
         else: bot.send_message(cid, "не смог ответить")
         return
     
     if cid in _dialog_mode and _dialog_mode[cid]:
         bot.reply_to(message, "💬 Думаю...")
-        answer = ask_ai_with_history(cid, text)
+        answer = ask_ai_with_history(cid, text, bot)
         if answer: bot.reply_to(message, answer)
         else: bot.reply_to(message, "не смог ответить")
         return
@@ -698,7 +726,7 @@ def handle_message(message):
     if cid in _story_mode and _story_mode[cid]:
         _story_mode[cid] = False
         bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
-        answer = ask_ai_long(f"Напиши абсурдную, безумную историю на тему: {text}. Пусть будет странно, смешно и непредсказуемо. Персонажи пусть творят дичь. Концовка должна быть неожиданной и безумной.", cid)
+        answer = ask_ai_long(f"Напиши абсурдную, безумную историю на тему: {text}. Пусть будет странно, смешно и непредсказуемо. Персонажи пусть творят дичь. Концовка должна быть неожиданной и безумной.", cid, bot)
         if answer: bot.send_message(cid, f"📖 {answer}")
         else: bot.send_message(cid, "не смог")
         return
@@ -706,7 +734,7 @@ def handle_message(message):
     if cid in _aimeme_mode and _aimeme_mode[cid]:
         _aimeme_mode[cid] = False
         bot.reply_to(message, "🤖 <b>Генерирую мем...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Придумай текст для мема на тему: {text}. Выдай строго в формате: ВЕРХ: ... | НИЗ: ...", cid)
+        answer = ask_ai(f"Придумай текст для мема на тему: {text}. Выдай строго в формате: ВЕРХ: ... | НИЗ: ...", cid, bot)
         if answer and "|" in answer:
             parts = answer.split("|")
             top = parts[0].replace("ВЕРХ:", "").strip()[:50]
@@ -718,7 +746,7 @@ def handle_message(message):
     if cid in _aipoem_mode and _aipoem_mode[cid]:
         _aipoem_mode[cid] = False
         bot.reply_to(message, "🎵 <b>Сочиняю стих...</b>", parse_mode="HTML")
-        answer = ask_ai_long(f"Напиши короткое стихотворение (4 строки) с рифмой на тему: {text}. Будь креативным.", cid)
+        answer = ask_ai_long(f"Напиши короткое стихотворение (4 строки) с рифмой на тему: {text}. Будь креативным.", cid, bot)
         if answer: bot.send_message(cid, f"🎵 {answer}")
         else: bot.send_message(cid, "не смог")
         return
@@ -745,7 +773,7 @@ def handle_message(message):
         clean=text.lower()
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
         if random.random() < 0.25:
-            answer = ask_ai(clean or "скажи что-нибудь", cid)
+            answer = ask_ai(clean or "скажи что-нибудь", cid, bot)
             if answer: bot.reply_to(message, answer)
             else: bot.reply_to(message, absurd_word_salad(cid, clean))
         else: bot.reply_to(message, absurd_word_salad(cid, clean))
@@ -754,8 +782,8 @@ def handle_message(message):
     if has_mat(text) and not no_mat:
         if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return
     
-    if random.random() < DEEPSEEK_CHANCE:
-        answer = ask_ai(text, cid)
+    if random.random() < AI_CHANCE:
+        answer = ask_ai(text, cid, bot)
         if answer: bot.reply_to(message, answer); return
     
     meme_trigger = random.randint(tr[0], tr[1])
