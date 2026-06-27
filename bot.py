@@ -735,12 +735,24 @@ def handle_message(message):
         _aimeme_mode[cid] = False
         bot.reply_to(message, "🤖 <b>Генерирую мем...</b>", parse_mode="HTML")
         answer = ask_ai(f"Придумай две короткие фразы для мема на тему: {text}. Выдай строго в формате: фраза1 | фраза2", cid, bot)
-        if answer and "|" in answer:
-            parts = answer.split("|")
-            top = parts[0].strip().strip('"').strip()[:50]
-            bottom = parts[1].strip().strip('"').strip()[:50]
-            send_template_meme(bot, cid, texts=[top, bottom])
-        else: bot.send_message(cid, "не смог придумать")
+        if answer:
+            if "|" in answer:
+                parts = answer.split("|")
+                top = parts[0].strip().strip('"').strip()[:50]
+                bottom = parts[1].strip().strip('"').strip()[:50]
+                send_template_meme(bot, cid, texts=[top, bottom])
+            else:
+                # Если нет | — делим ответ пополам
+                words = answer.split()
+                if len(words) >= 4:
+                    mid = len(words) // 2
+                    top = " ".join(words[:mid])[:50]
+                    bottom = " ".join(words[mid:])[:50]
+                    send_template_meme(bot, cid, texts=[top, bottom])
+                else:
+                    send_template_meme(bot, cid, texts=[answer[:50], ""])
+        else:
+            bot.send_message(cid, "не смог придумать")
         return
 
     if cid in _aipoem_mode and _aipoem_mode[cid]:
