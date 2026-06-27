@@ -105,15 +105,10 @@ AI_MODES = {
 
 AI_MODELS = {
     "deepseek": "deepseek/deepseek-chat",
-    "gemini": "google/gemini-2.0-flash",
     "llama": "meta-llama/llama-3.1-8b-instruct",
-    "mistral": "mistralai/mistral-7b-instruct",
-    "gemma": "google/gemma-2-9b-it",
-    "hermes": "nousresearch/hermes-3-llama-3.1-8b",
-    "phi3": "microsoft/phi-3-mini-128k-instruct",
 }
 
-MODEL_ORDER = ["deepseek", "gemini", "llama", "mistral", "gemma", "hermes", "phi3"]
+MODEL_ORDER = ["deepseek", "llama"]
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
@@ -262,7 +257,6 @@ def call_ai(messages, chat_id, max_tokens=150, bot_instance=None):
                 s["ai_model"] = model_key
                 save_settings(chat_id)
                 log.info(f"Модель переключена: {old_model} → {model_key}")
-                # Уведомление в чат (один раз)
                 if bot_instance and chat_id not in _switched_model:
                     _switched_model[chat_id] = True
                     try:
@@ -529,7 +523,7 @@ def ai_creative_menu():
 def model_menu(cid):
     model = get_ai_model(cid)
     markup = InlineKeyboardMarkup(row_width=2)
-    for key, label in [("deepseek","DeepSeek"),("gemini","Gemini"),("llama","Llama 3"),("mistral","Mistral"),("gemma","Gemma 2"),("hermes","Hermes 3"),("phi3","Phi-3")]:
+    for key, label in [("deepseek","DeepSeek"),("llama","Llama 3")]:
         mark = "✅ " if model==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
@@ -742,7 +736,6 @@ def handle_message(message):
                 bottom = parts[1].strip().strip('"').strip()[:50]
                 send_template_meme(bot, cid, texts=[top, bottom])
             else:
-                # Если нет | — делим ответ пополам
                 words = answer.split()
                 if len(words) >= 4:
                     mid = len(words) // 2
@@ -751,10 +744,9 @@ def handle_message(message):
                     send_template_meme(bot, cid, texts=[top, bottom])
                 else:
                     send_template_meme(bot, cid, texts=[answer[:50], ""])
-        else:
-            bot.send_message(cid, "не смог придумать")
+        else: bot.send_message(cid, "не смог придумать")
         return
-
+    
     if cid in _aipoem_mode and _aipoem_mode[cid]:
         _aipoem_mode[cid] = False
         bot.reply_to(message, "🎵 <b>Сочиняю стих...</b>", parse_mode="HTML")
