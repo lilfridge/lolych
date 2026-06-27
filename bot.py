@@ -457,8 +457,6 @@ def get_user_msgs(chat_id, name):
 bot = telebot.TeleBot(TOKEN)
 
 # ─── Меню ────────────────────────────────────────────────────────────────────
-SEP = ""
-
 def main_menu(cid):
     msgs = _load(cid, "messages")
     photos = _load(cid, "photos")
@@ -467,29 +465,31 @@ def main_menu(cid):
     lv = get_level(cid)
     lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
     
+    total_chars = sum(len(m) for m in msgs)
+    if total_chars > 1000000: chars_str = f"{total_chars // 1000000} млн"
+    elif total_chars > 1000: chars_str = f"{total_chars // 1000} тыс"
+    else: chars_str = str(total_chars)
+    
     txt = f"""🃏 <b>Лолыч</b>
 
-📋 <b>Главное меню</b>
 🔧 ID: <code>{cid}</code>
 🧠 {model} · ⭐ {lv_name}
 
-📚 Сообщений: {len(msgs)}
-🖼 Фото: {len(photos)} · 👥: {len(users)}
-
-{SEP}"""
+📚 Сообщений: {len(msgs)} · символов: {chars_str}
+🖼 Фото: {len(photos)} · 👥: {len(users)}"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
+    markup.add(
+        InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
+        InlineKeyboardButton("🤖 ИИ", callback_data="menu_ai")
+    )
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
-    markup.add(InlineKeyboardButton("🤖 ИИ", callback_data="menu_ai"))
     return txt, markup
 
 def fun_menu():
-    txt = f"""🎪 <b>Тут мои таланты</b>
+    txt = """🎪 <b>Тут мои таланты</b>
 
-Смотри, не упади со смеху 😏
-
-{SEP}"""
+Смотри, не упади со смеху 😏"""
     
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("🤖 ИИ Мем", callback_data="menu_aimeme"))
@@ -501,17 +501,19 @@ def fun_menu():
 
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
-    txt = f"""⚙️ <b>Настройки</b>
+    txt = """⚙️ <b>Параметры</b>
 
-Крути как хочешь, я запомню 🤙
-
-{SEP}"""
+Крути как хочешь, я запомню 🤙"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
-    markup.add(InlineKeyboardButton("⭐ Активность", callback_data="menu_activity"))
-    markup.add(InlineKeyboardButton("🧠 Модель ИИ", callback_data="menu_model"))
-    markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
+    markup.add(
+        InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"),
+        InlineKeyboardButton("⭐ Активность", callback_data="menu_activity")
+    )
+    markup.add(
+        InlineKeyboardButton("🧠 Модель ИИ", callback_data="menu_model"),
+        InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style")
+    )
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
@@ -524,74 +526,61 @@ def activity_menu(cid):
     txt = f"""⭐ <b>Активность</b>
 
 Уровень: {lv} ({lv_name})
-Мат: {'✅ разрешён' if not no_mat else '🚫 запрещён'}
-
-{SEP}"""
+Мат: {'✅ разрешён' if not no_mat else '🚫 запрещён'}"""
     
     markup = InlineKeyboardMarkup(row_width=3)
+    emoji_map = {1: "😴", 2: "🤙", 3: "🔥"}
     btns = []
-    for i in [1,2,3]:
-        label = f"{'✅ ' if i==lv else ''}{i}\n{ {1:'молчун',2:'редко',3:'часто'}[i]}"
-        btns.append(InlineKeyboardButton(label, callback_data=f"setlevel_{i}"))
+    for i in [1, 2, 3]:
+        mark = "✅" if i == lv else ""
+        btns.append(InlineKeyboardButton(f"{mark} {emoji_map[i]} {i}", callback_data=f"setlevel_{i}"))
     markup.add(*btns)
     markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
 
-def level_menu(cid):
-    return activity_menu(cid)
-
 def ai_menu(cid):
-    txt = f"""🧠 <b>Искусственный интеллект</b>
+    txt = """🧠 <b>Искусственный интеллект</b>
 
-Я умею думать... иногда 🤔
-
-{SEP}"""
+Я умею думать... иногда 🤔"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("💬 Ответы", callback_data="menu_ai_answers"))
-    markup.add(InlineKeyboardButton("🎨 Творчество", callback_data="menu_ai_creative"))
+    markup.add(
+        InlineKeyboardButton("💬 Ответы", callback_data="menu_ai_answers"),
+        InlineKeyboardButton("🎨 Творчество", callback_data="menu_ai_creative")
+    )
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
 
 def ai_answers_menu():
-    txt = f"""💬 <b>Задай мне вопрос</b>
+    txt = """💬 <b>Задай мне вопрос</b>
 или попроси помочь
 
-Я постараюсь не тупить 🤞
-
-{SEP}"""
+Я постараюсь не тупить 🤞"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
-    markup.add(InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
-    markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"))
-    markup.add(InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
+    markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"), InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
+    markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"), InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
     return txt, markup
 
 def ai_creative_menu():
-    txt = f"""🎨 <b>Я могу сочинять</b>
+    txt = """🎨 <b>Я могу сочинять</b>
 и придумывать всякое
 
-Шутки, истории, стихи — легко 🎭
-
-{SEP}"""
+Шутки, истории, стихи — легко 🎭"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
-    markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
+    markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"), InlineKeyboardButton("📖 История", callback_data="menu_story"))
     markup.add(InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
     return txt, markup
 
 def model_menu(cid):
     model = get_ai_model(cid)
-    txt = f"""🧠 <b>Модель ИИ</b>
+    txt = """🧠 <b>Модель ИИ</b>
 
-Выбери кто будет думать
-
-{SEP}"""
+Выбери кто будет думать"""
     
     markup = InlineKeyboardMarkup(row_width=2)
     for key, label in [("deepseek","DeepSeek"),("llama","Llama 3")]:
@@ -602,16 +591,18 @@ def model_menu(cid):
 
 def style_menu(cid):
     mode = get_ai_mode(cid)
-    txt = f"""🎭 <b>Стиль ИИ</b>
+    txt = """🎭 <b>Стиль ИИ</b>
 
-Как мне отвечать?
-
-{SEP}"""
+Как мне отвечать?"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    for key, label in [("normal","Обычный"),("angry","Злой"),("philosopher","Философ"),("gopnik","Гопник")]:
-        mark = "✅ " if mode==key else ""
-        markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
+    items = [("normal", "Обычный"), ("angry", "Злой"), ("philosopher", "Философ"), ("gopnik", "Гопник")]
+    for i in range(0, len(items), 2):
+        row = []
+        for key, label in items[i:i+2]:
+            mark = "✅ " if mode == key else ""
+            row.append(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
+        markup.add(*row)
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
 
@@ -647,7 +638,6 @@ def handle_buttons(call):
         "menu_model": model_menu(cid),
         "menu_style": style_menu(cid),
         "menu_activity": activity_menu(cid),
-        "level_menu": level_menu(cid),
     }
     
     if call.data in nav:
