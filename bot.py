@@ -23,15 +23,15 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
 LEVELS = {
-    1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
-    2: (350, 500, 600, 800, 400, 600, 500, 1000, 500, 800, 700, 1000, 0.03),
-    3: (100, 250, 200, 400, 100, 300, 200, 300, 100, 200, 100, 200, 0.30),
+    1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005, 1500, 2000),
+    2: (350, 500, 600, 800, 400, 600, 500, 1000, 500, 800, 700, 1000, 0.03, 700, 1000),
+    3: (100, 250, 200, 400, 100, 300, 200, 300, 100, 200, 100, 200, 0.30, 200, 400),
 }
 
 LEVEL_EXTRAS = {
-    1: (0.01, 0.05, 0.30, 0.05, 0.05),
-    2: (0.03, 0.20, 0.60, 0.15, 0.20),
-    3: (0.10, 0.50, 1.00, 0.40, 0.50),
+    1: (0.01, 0.05, 0.30, 0.05, 0.05, 0.05),
+    2: (0.03, 0.20, 0.60, 0.15, 0.20, 0.20),
+    3: (0.10, 0.50, 1.00, 0.40, 0.50, 0.35),
 }
 
 MAT = [
@@ -98,6 +98,8 @@ def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
 _cache = {}
 _my_photos = set()
+_chat_stickers = []
+MAX_CHAT_STICKERS = 100
 _clear_confirm = {}
 
 def _load(chat_id, key):
@@ -106,7 +108,7 @@ def _load(chat_id, key):
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
         default = {} if key in ("users","counter","settings") else []
-        if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
+        if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0,"sticker_send":0,"poll":0}
         if key == "settings": default = {"level":1,"muted":False,"no_mat":False}
         _cache[cache_key] = default
         return default
@@ -247,6 +249,18 @@ def mix_messages(chat_id):
     else: half2 = words2[len(words2)//2:]
     return " ".join(half1 + half2)
 
+# ─── Опросы ───────────────────────────────────────────────────────────────────
+def send_random_poll(bot_instance, chat_id):
+    words = _chat_words(chat_id)
+    if len(words) < 5: return
+    question_word = random.choice(words)
+    options = random.sample([w for w in words if w != question_word], min(4, len(words)-1))
+    if len(options) < 2: options = ["жто не не", "67"]
+    options = options[:4]
+    question = f"Что такое «{question_word}»?"
+    try: bot_instance.send_poll(chat_id, question=question, options=options, is_anonymous=False)
+    except: pass
+
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
     for p in ["impact.ttf", os.path.join(os.path.dirname(__file__),"impact.ttf"),
@@ -336,13 +350,26 @@ def send_template_meme(bot_instance, chat_id, reply_to=None, texts=None):
 def make_sticker(img_bytes):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
     w, h = img.size
-    try:
-        sticker_data = requests.get(random.choice(STICKERS), timeout=10).content
-        sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
-        ss = min(w,h)//5; sticker = sticker.resize((ss,ss), Image.LANCZOS)
-        img.paste(sticker, (random.randint(0,max(0,w-ss)), random.randint(0,max(0,h-ss))), sticker)
-    except: pass
-    out = io.BytesIO(); img.convert("RGB").save(out, format="JPEG"); out.seek(0)
+    all_stickers = STICKERS + _chat_stickers
+    if not all_stickers: return io.BytesIO()
+    choice = random.choice(all_stickers)
+    if choice.startswith("http"):
+        try:
+            sticker_data = requests.get(choice, timeout=10).content
+            sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
+        except: return io.BytesIO()
+    else:
+        try:
+            file_info = bot.get_file(choice)
+            sticker_data = bot.download_file(file_info.file_path)
+            sticker = Image.open(io.BytesIO(sticker_data)).convert("RGBA")
+        except: return io.BytesIO()
+    ss = min(w, h) // 5
+    sticker = sticker.resize((ss, ss), Image.LANCZOS)
+    img.paste(sticker, (random.randint(0, max(0, w-ss)), random.randint(0, max(0, h-ss))), sticker)
+    out = io.BytesIO()
+    img.convert("RGB").save(out, format="JPEG")
+    out.seek(0)
     return out
 
 def send_sticker_photo(bot_instance, chat_id, reply_to=None):
@@ -373,6 +400,7 @@ def main_menu(cid):
     users = _load(cid, "users")
     lv = get_level(cid)
     lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
+    all_st = len(STICKERS) + len(_chat_stickers)
     
     total_chars = sum(len(m) for m in msgs)
     if total_chars > 1000000: chars_str = f"{total_chars // 1000000} млн"
@@ -385,7 +413,8 @@ def main_menu(cid):
 🧠 Markov · ⭐ {lv_name}
 
 📚 Сообщений: {len(msgs)} · символов: {chars_str}
-🖼 Фото: {len(photos)} · 👥: {len(users)}"""
+🖼 Фото: {len(photos)} · 🎨 Стикеров: {all_st}
+👥: {len(users)}"""
     
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
@@ -401,6 +430,7 @@ def fun_menu():
     markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
     markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("🎬 Гифка", callback_data="gif"))
     markup.add(InlineKeyboardButton("💬 Микс", callback_data="mix"), InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+    markup.add(InlineKeyboardButton("📊 Опрос", callback_data="poll"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
 
@@ -447,12 +477,46 @@ def handle_new_member(message):
         if member.username == bot.get_me().username:
             bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>", parse_mode="HTML")
 
+# ─── Стикеры из чата ─────────────────────────────────────────────────────────
+@bot.message_handler(content_types=["sticker"])
+def handle_sticker(message):
+    cid = message.chat.id
+    if is_muted(cid): return
+    file_id = message.sticker.file_id
+    if not message.sticker.is_animated and not message.sticker.is_video:
+        if file_id not in _chat_stickers:
+            _chat_stickers.append(file_id)
+            if len(_chat_stickers) > MAX_CHAT_STICKERS:
+                _chat_stickers.pop(0)
+    extras = LEVEL_EXTRAS.get(get_level(cid), LEVEL_EXTRAS[1])
+    if _chat_stickers and random.random() < extras[5]:
+        fid = random.choice(_chat_stickers)
+        bot.send_sticker(cid, fid, reply_to_message_id=message.message_id)
+
 # ─── Старт ──────────────────────────────────────────────────────────────────
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
+
+# ─── Опрос ───────────────────────────────────────────────────────────────────
+@bot.message_handler(commands=["опрос", "poll"])
+def cmd_poll(message):
+    cid = message.chat.id
+    text = message.text.split(maxsplit=1)
+    if len(text) < 2:
+        bot.reply_to(message, "Напиши: /опрос Вопрос? Вариант1, Вариант2")
+        return
+    parts = text[1].split("?")
+    if len(parts) < 2:
+        bot.reply_to(message, "Поставь ? после вопроса")
+        return
+    question = parts[0].strip() + "?"
+    options = [o.strip() for o in parts[1].split(",") if o.strip()]
+    if len(options) < 2: options = ["Да", "Нет"]
+    if len(options) > 10: options = options[:10]
+    bot.send_poll(cid, question=question, options=options, is_anonymous=False)
 
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
@@ -472,7 +536,9 @@ def handle_buttons(call):
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
     
-    if call.data == "menu_clear":
+    if call.data == "poll":
+        bot.edit_message_text("📊 <b>Напиши в чат:</b>\n/опрос Вопрос? Вариант1, Вариант2", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
@@ -532,7 +598,7 @@ def handle_message(message):
     tr = LEVELS.get(lv, LEVELS[1])
     extras = LEVEL_EXTRAS.get(lv, LEVEL_EXTRAS[1])
     c=get_counter(cid)
-    for k in ["msgs","meme","voice","mat","dem","stick","gif"]: c[k]=c.get(k,0)+1
+    for k in ["msgs","meme","voice","mat","dem","stick","gif","sticker_send","poll"]: c[k]=c.get(k,0)+1
     
     if "кто" in text.lower().split() and random.random() < extras[1]:
         u=get_random_user(cid)
@@ -560,6 +626,8 @@ def handle_message(message):
     mat_trigger = random.randint(tr[6], tr[7])
     stick_trigger = random.randint(tr[8], tr[9])
     gif_trigger = random.randint(tr[10], tr[11])
+    sticker_send_trigger = random.randint(tr[8], tr[9])
+    poll_trigger = random.randint(tr[13], tr[14])
     
     if c["mat"]>=mat_trigger and not no_mat: c["mat"]=0; save_counter(cid); bot.reply_to(message, random.choice(MAT).upper()+"!"); return
     if c["mat"]>=mat_trigger: c["mat"]=0; save_counter(cid)
@@ -568,6 +636,15 @@ def handle_message(message):
     if c["gif"]>=gif_trigger: c["gif"]=0; save_counter(cid); threading.Thread(target=lambda: (lambda u: u and bot.send_document(cid, u))(get_random_gif()), daemon=True).start(); return
     if c["dem"]>=dem_trigger and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
     if c["stick"]>=stick_trigger and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
+    if c["sticker_send"]>=sticker_send_trigger and _chat_stickers:
+        c["sticker_send"]=0; save_counter(cid)
+        fid = random.choice(_chat_stickers)
+        bot.send_sticker(cid, fid)
+        return
+    if c["poll"]>=poll_trigger:
+        c["poll"]=0; save_counter(cid)
+        send_random_poll(bot, cid)
+        return
     save_counter(cid)
     
     if f"@{bot.get_me().username}" in text:
