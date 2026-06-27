@@ -16,18 +16,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 TOKEN = os.environ.get("TOKEN")
-OPENROUTER_KEYS = [
-    os.environ.get("OPENROUTER_KEY_1", ""),
-    os.environ.get("OPENROUTER_KEY_2", ""),
-    os.environ.get("OPENROUTER_KEY_3", ""),
-]
-OPENROUTER_KEYS = [k for k in OPENROUTER_KEYS if k]  # убираем пустые
-_current_key_index = 0
-
-def get_next_key():
-    global _current_key_index
-    _current_key_index = (_current_key_index + 1) % len(OPENROUTER_KEYS)
-    return OPENROUTER_KEYS[_current_key_index]
 GIPHY_KEY = os.environ.get("GIPHY_KEY")
 IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
@@ -45,8 +33,6 @@ LEVEL_EXTRAS = {
     2: (0.03, 0.20, 0.60, 0.15, 0.20),
     3: (0.10, 0.50, 1.00, 0.40, 0.50),
 }
-
-AI_CHANCE = 0.05
 
 MAT = [
     "блять", "бля", "нахуй", "хуй", "пизда", "ебать", "сука", "пиздец",
@@ -107,36 +93,12 @@ KOGDA_ANSWERS = [
     "после того как {user} поумнеет",
 ]
 
-AI_MODES = {
-    "normal": "Ты — бот Лолыч. Отвечай коротко и по делу.",
-    "angry": "Ты — бот Лолыч. Ты злой и агрессивный. Отвечай грубо и с подколами.",
-    "philosopher": "Ты — бот Лолыч. Ты философ. Отвечай загадками и мудростями.",
-    "gopnik": "Ты — бот Лолыч. Ты гопник. Отвечай дерзко, на районе.",
-}
-
-AI_MODELS = {
-    "deepseek": "deepseek/deepseek-chat",
-    "llama": "meta-llama/llama-3.1-8b-instruct",
-}
-
-MODEL_ORDER = ["deepseek", "llama"]
-
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
 _cache = {}
 _my_photos = set()
-_ask_mode = {}
 _clear_confirm = {}
-_rofl_mode = {}
-_kto_ai_mode = {}
-_dialog_mode = {}
-_story_mode = {}
-_aimeme_mode = {}
-_aipoem_mode = {}
-_dialog_codes = {}
-_dialog_history = {}
-_switched_model = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -145,7 +107,7 @@ def _load(chat_id, key):
     if not os.path.exists(path):
         default = {} if key in ("users","counter","settings") else []
         if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
-        if key == "settings": default = {"level":1,"muted":False,"no_mat":False,"ai_mode":"normal","ai_model":"deepseek"}
+        if key == "settings": default = {"level":1,"muted":False,"no_mat":False}
         _cache[cache_key] = default
         return default
     with open(path, "r", encoding="utf-8") as f: _cache[cache_key] = json.load(f)
@@ -200,8 +162,6 @@ def save_settings(chat_id): _save(chat_id, "settings")
 def get_level(chat_id): return get_settings(chat_id).get("level",1)
 def is_muted(chat_id): return get_settings(chat_id).get("muted",False)
 def is_no_mat(chat_id): return get_settings(chat_id).get("no_mat",False)
-def get_ai_mode(chat_id): return get_settings(chat_id).get("ai_mode","normal")
-def get_ai_model(chat_id): return get_settings(chat_id).get("ai_model","deepseek")
 def get_counter(chat_id): return _load(chat_id, "counter")
 def save_counter(chat_id): _save(chat_id, "counter")
 
@@ -242,52 +202,6 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     text = " ".join(result)
     if random.random() < 0.1: text = text.upper()
     return text.strip()
-
-# ─── OpenRouter с авто-переключением ───────────────────────────────────────────
-def call_ai(messages, chat_id, max_tokens=150, bot_instance=None):
-    global _current_key_index
-    try:
-        mode = get_ai_mode(chat_id)
-        model_key = get_ai_model(chat_id)
-        system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
-        
-        for attempt in range(len(MODEL_ORDER) * len(OPENROUTER_KEYS)):
-            key = OPENROUTER_KEYS[_current_key_index % len(OPENROUTER_KEYS)]
-            model_name = AI_MODELS.get(model_key, "deepseek/deepseek-chat")
-            headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-            full_messages = [{"role": "system", "content": system_prompt}] + messages
-            data = {"model": model_name, "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
-            r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
-            
-            if r.status_code == 200:
-                return r.json()["choices"][0]["message"]["content"].strip()
-            elif r.status_code in (429, 402):
-                # Меняем ключ
-                _current_key_index = (_current_key_index + 1) % len(OPENROUTER_KEYS)
-                log.info(f"Ключ {_current_key_index+1}/{len(OPENROUTER_KEYS)}")
-            else:
-                return None
-        return None
-    except: pass
-    return None
-
-def ask_ai(prompt, chat_id, bot_instance=None):
-    context = " ".join(_load(chat_id, "messages")[-20:])
-    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 150, bot_instance)
-
-def ask_ai_long(prompt, chat_id, bot_instance=None):
-    context = " ".join(_load(chat_id, "messages")[-20:])
-    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 400, bot_instance)
-
-def ask_ai_with_history(chat_id, user_text, bot_instance=None):
-    if chat_id not in _dialog_history: _dialog_history[chat_id] = []
-    _dialog_history[chat_id].append({"role": "user", "content": user_text})
-    if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
-    reply = call_ai(_dialog_history[chat_id], chat_id, 150, bot_instance)
-    if reply:
-        _dialog_history[chat_id].append({"role": "assistant", "content": reply})
-        if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
-    return reply
 
 # ─── GIPHY ─────────────────────────────────────────────────────────────────────
 def get_random_gif():
@@ -449,13 +363,6 @@ def get_random_user(chat_id):
     u = get_users(chat_id)
     return random.choice(list(u.values()))["name"] if u else None
 
-def get_user_msgs(chat_id, name):
-    users = get_users(chat_id)
-    for uid, data in users.items():
-        if data["name"].lower() == name.lower():
-            return " ".join(data["messages"][-10:])
-    return "сообщений нет"
-
 # ─── Бот ──────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
 
@@ -464,7 +371,6 @@ def main_menu(cid):
     msgs = _load(cid, "messages")
     photos = _load(cid, "photos")
     users = _load(cid, "users")
-    model = get_ai_model(cid)
     lv = get_level(cid)
     lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
     
@@ -476,16 +382,13 @@ def main_menu(cid):
     txt = f"""🃏 <b>Лолыч</b>
 
 🔧 ID: <code>{cid}</code>
-🧠 {model} · ⭐ {lv_name}
+🧠 Markov · ⭐ {lv_name}
 
 📚 Сообщений: {len(msgs)} · символов: {chars_str}
 🖼 Фото: {len(photos)} · 👥: {len(users)}"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
-        InlineKeyboardButton("🤖 ИИ", callback_data="menu_ai")
-    )
+    markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
     return txt, markup
 
@@ -495,10 +398,9 @@ def fun_menu():
 Смотри, не упади со смеху 😏"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("🤖 ИИ Мем", callback_data="menu_aimeme"))
-    markup.add(InlineKeyboardButton("😔 Демотиватор", callback_data="dem"), InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
-    markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-    markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
+    markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("🎬 Гифка", callback_data="gif"))
+    markup.add(InlineKeyboardButton("💬 Микс", callback_data="mix"), InlineKeyboardButton("🎙 Голос", callback_data="voice"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
 
@@ -512,10 +414,6 @@ def params_menu(cid):
     markup.add(
         InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"),
         InlineKeyboardButton("⭐ Активность", callback_data="menu_activity")
-    )
-    markup.add(
-        InlineKeyboardButton("🧠 Модель ИИ", callback_data="menu_model"),
-        InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style")
     )
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
@@ -542,73 +440,6 @@ def activity_menu(cid):
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
 
-def ai_menu(cid):
-    txt = """🧠 <b>Искусственный интеллект</b>
-
-Я умею думать... иногда 🤔"""
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("💬 Ответы", callback_data="menu_ai_answers"),
-        InlineKeyboardButton("🎨 Творчество", callback_data="menu_ai_creative")
-    )
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
-    return txt, markup
-
-def ai_answers_menu():
-    txt = """💬 <b>Задай мне вопрос</b>
-или попроси помочь
-
-Я постараюсь не тупить 🤞"""
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"), InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
-    markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"), InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
-    return txt, markup
-
-def ai_creative_menu():
-    txt = """🎨 <b>Я могу сочинять</b>
-и придумывать всякое
-
-Шутки, истории, стихи — легко 🎭"""
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"), InlineKeyboardButton("📖 История", callback_data="menu_story"))
-    markup.add(InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
-    return txt, markup
-
-def model_menu(cid):
-    model = get_ai_model(cid)
-    txt = """🧠 <b>Модель ИИ</b>
-
-Выбери кто будет думать"""
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    for key, label in [("deepseek","DeepSeek"),("llama","Llama 3")]:
-        mark = "✅ " if model==key else ""
-        markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-    return txt, markup
-
-def style_menu(cid):
-    mode = get_ai_mode(cid)
-    txt = """🎭 <b>Стиль ИИ</b>
-
-Как мне отвечать?"""
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    items = [("normal", "Обычный"), ("angry", "Злой"), ("philosopher", "Философ"), ("gopnik", "Гопник")]
-    for i in range(0, len(items), 2):
-        row = []
-        for key, label in items[i:i+2]:
-            mark = "✅ " if mode == key else ""
-            row.append(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
-        markup.add(*row)
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-    return txt, markup
-
 # ─── Приветствие ─────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["new_chat_members"])
 def handle_new_member(message):
@@ -620,8 +451,6 @@ def handle_new_member(message):
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
-    for d in [_ask_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode]:
-        d[cid] = False
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
@@ -635,11 +464,6 @@ def handle_buttons(call):
         "menu_back": main_menu(cid),
         "menu_fun": fun_menu(),
         "menu_params": params_menu(cid),
-        "menu_ai": ai_menu(cid),
-        "menu_ai_answers": ai_answers_menu(),
-        "menu_ai_creative": ai_creative_menu(),
-        "menu_model": model_menu(cid),
-        "menu_style": style_menu(cid),
         "menu_activity": activity_menu(cid),
     }
     
@@ -648,37 +472,7 @@ def handle_buttons(call):
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
     
-    if call.data == "menu_ask":
-        _ask_mode[cid] = True
-        bot.edit_message_text("🤖 <b>Напиши свой вопрос в чат</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_joke":
-        context = " ".join(_load(cid, "messages")[-50:])
-        bot.edit_message_text("😂 <b>Генерирую шутку...</b>", cid, call.message.message_id, parse_mode="HTML")
-        answer = ask_ai(f"Придумай смешную шутку на основе этого контекста чата: {context[:500]}", cid, bot)
-        if answer: bot.send_message(cid, f"😂 {answer}")
-        else: bot.send_message(cid, "не смог придумать")
-    elif call.data == "menu_rofl":
-        _rofl_mode[cid] = True
-        bot.edit_message_text("🔥 <b>Ответь (reply) на сообщение того, кого хочешь зарофлить</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_kto_ai":
-        _kto_ai_mode[cid] = True
-        bot.edit_message_text("🎲 <b>Напиши вопрос с \"кто\"</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_dialog":
-        code = random.randint(1, 100)
-        _dialog_codes[cid] = code
-        _dialog_mode[cid] = True
-        _dialog_history[cid] = []
-        bot.edit_message_text(f"💬 <b>Диалог начат!</b>\nКод выхода: <b>{code}</b>\nЧтобы выйти, напиши это число.", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_story":
-        _story_mode[cid] = True
-        bot.edit_message_text("📖 <b>Напиши тему для истории</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_aimeme":
-        _aimeme_mode[cid] = True
-        bot.edit_message_text("🤖 <b>Напиши тему для мема</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_aipoem":
-        _aipoem_mode[cid] = True
-        bot.edit_message_text("🎵 <b>Напиши тему для стиха</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_clear":
+    if call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
@@ -707,17 +501,6 @@ def handle_buttons(call):
         s = get_settings(cid); s["level"] = lv; save_settings(cid)
         txt, markup = activity_menu(cid)
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-    elif call.data.startswith("style_"):
-        mode = call.data.split("_")[1]
-        s = get_settings(cid); s["ai_mode"] = mode; save_settings(cid)
-        txt, markup = style_menu(cid)
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-    elif call.data.startswith("model_"):
-        model = call.data.split("_")[1]
-        s = get_settings(cid); s["ai_model"] = model; save_settings(cid)
-        _switched_model.pop(cid, None)
-        txt, markup = model_menu(cid)
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
@@ -744,87 +527,6 @@ def handle_message(message):
     text=message.text; name=message.from_user.first_name or "Аноним"; uid=message.from_user.id
     add_message(cid, text); add_user_message(cid, uid, name, text)
     
-    if cid in _dialog_mode and _dialog_mode[cid]:
-        if text.strip() == str(_dialog_codes.get(cid)):
-            _dialog_mode[cid] = False
-            _dialog_history[cid] = []
-            bot.reply_to(message, "💬 <b>Диалог завершён.</b>", parse_mode="HTML")
-            return
-    
-    if cid in _rofl_mode and _rofl_mode[cid] and message.reply_to_message:
-        _rofl_mode[cid] = False
-        target = message.reply_to_message.from_user.first_name
-        msgs = get_user_msgs(cid, target)
-        bot.reply_to(message, "🔥 <b>Генерирую рофл...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Напиши смешную историю про {target}. Вот что он писал в чате: {msgs[:500]}", cid, bot)
-        if answer: bot.send_message(cid, f"🔥 {answer}")
-        else: bot.send_message(cid, "не смог")
-        return
-    
-    if cid in _kto_ai_mode and _kto_ai_mode[cid] and "кто" in text.lower():
-        _kto_ai_mode[cid] = False
-        u = get_random_user(cid)
-        if not u: bot.reply_to(message, "никого не знаю"); return
-        msgs = get_user_msgs(cid, u)
-        bot.reply_to(message, "🎲 <b>Думаю...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Ответь на вопрос: '{text}'. Выбери {u} как ответ. Объясни почему, используя эти сообщения: {msgs[:400]}. Будь смешным и убедительным.", cid, bot)
-        if answer: bot.send_message(cid, f"🎲 {answer}")
-        else: bot.send_message(cid, f"🎲 это {u}, потому что я так сказал")
-        return
-    
-    if cid in _ask_mode and _ask_mode[cid]:
-        _ask_mode[cid] = False
-        bot.reply_to(message, "🤔 Думаю...")
-        answer = ask_ai(text, cid, bot)
-        if answer: bot.send_message(cid, answer)
-        else: bot.send_message(cid, "не смог ответить")
-        return
-    
-    if cid in _dialog_mode and _dialog_mode[cid]:
-        bot.reply_to(message, "💬 Думаю...")
-        answer = ask_ai_with_history(cid, text, bot)
-        if answer: bot.reply_to(message, answer)
-        else: bot.reply_to(message, "не смог ответить")
-        return
-    
-    if cid in _story_mode and _story_mode[cid]:
-        _story_mode[cid] = False
-        bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
-        answer = ask_ai_long(f"Напиши абсурдную, безумную историю на тему: {text}. Пусть будет странно, смешно и непредсказуемо. Персонажи пусть творят дичь. Концовка должна быть неожиданной и безумной.", cid, bot)
-        if answer: bot.send_message(cid, f"📖 {answer}")
-        else: bot.send_message(cid, "не смог")
-        return
-    
-    if cid in _aimeme_mode and _aimeme_mode[cid]:
-        _aimeme_mode[cid] = False
-        bot.reply_to(message, "🤖 <b>Генерирую мем...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Придумай две короткие фразы для мема на тему: {text}. Выдай строго в формате: фраза1 | фраза2", cid, bot)
-        if answer:
-            if "|" in answer:
-                parts = answer.split("|")
-                top = parts[0].strip().strip('"').strip()[:50]
-                bottom = parts[1].strip().strip('"').strip()[:50]
-                send_template_meme(bot, cid, texts=[top, bottom])
-            else:
-                words = answer.split()
-                if len(words) >= 4:
-                    mid = len(words) // 2
-                    top = " ".join(words[:mid])[:50]
-                    bottom = " ".join(words[mid:])[:50]
-                    send_template_meme(bot, cid, texts=[top, bottom])
-                else:
-                    send_template_meme(bot, cid, texts=[answer[:50], ""])
-        else: bot.send_message(cid, "не смог придумать")
-        return
-    
-    if cid in _aipoem_mode and _aipoem_mode[cid]:
-        _aipoem_mode[cid] = False
-        bot.reply_to(message, "🎵 <b>Сочиняю стих...</b>", parse_mode="HTML")
-        answer = ask_ai_long(f"Напиши короткое стихотворение (4 строки) с рифмой на тему: {text}. Будь креативным.", cid, bot)
-        if answer: bot.send_message(cid, f"🎵 {answer}")
-        else: bot.send_message(cid, "не смог")
-        return
-    
     no_mat = is_no_mat(cid)
     lv = get_level(cid)
     tr = LEVELS.get(lv, LEVELS[1])
@@ -846,19 +548,11 @@ def handle_message(message):
     if any(w in text.lower() for w in ["лолыч","лолич"]) and random.random() < extras[2]:
         clean=text.lower()
         for w in ["лолыч","лолич"]: clean=clean.replace(w,"").strip()
-        if random.random() < 0.25:
-            answer = ask_ai(clean or "скажи что-нибудь", cid, bot)
-            if answer: bot.reply_to(message, answer)
-            else: bot.reply_to(message, absurd_word_salad(cid, clean))
-        else: bot.reply_to(message, absurd_word_salad(cid, clean))
+        bot.reply_to(message, absurd_word_salad(cid, clean))
         return
     
     if has_mat(text) and not no_mat:
         if random.random() < extras[0]: bot.reply_to(message, random.choice(MAT).upper()+"!"); return
-    
-    if random.random() < AI_CHANCE:
-        answer = ask_ai(text, cid, bot)
-        if answer: bot.reply_to(message, answer); return
     
     meme_trigger = random.randint(tr[0], tr[1])
     voice_trigger = random.randint(tr[2], tr[3])
