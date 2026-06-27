@@ -16,7 +16,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 TOKEN = os.environ.get("TOKEN")
-OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")
+OPENROUTER_KEYS = [
+    os.environ.get("OPENROUTER_KEY_1", ""),
+    os.environ.get("OPENROUTER_KEY_2", ""),
+    os.environ.get("OPENROUTER_KEY_3", ""),
+]
+OPENROUTER_KEYS = [k for k in OPENROUTER_KEYS if k]  # убираем пустые
+_current_key_index = 0
+
+def get_next_key():
+    global _current_key_index
+    _current_key_index = (_current_key_index + 1) % len(OPENROUTER_KEYS)
+    return OPENROUTER_KEYS[_current_key_index]
 GIPHY_KEY = os.environ.get("GIPHY_KEY")
 IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
@@ -234,34 +245,26 @@ def absurd_word_salad(chat_id, source_text="", length=None):
 
 # ─── OpenRouter с авто-переключением ───────────────────────────────────────────
 def call_ai(messages, chat_id, max_tokens=150, bot_instance=None):
+    global _current_key_index
     try:
         mode = get_ai_mode(chat_id)
         model_key = get_ai_model(chat_id)
         system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
-        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
         
-        for attempt in range(len(MODEL_ORDER)):
+        for attempt in range(len(MODEL_ORDER) * len(OPENROUTER_KEYS)):
+            key = OPENROUTER_KEYS[_current_key_index % len(OPENROUTER_KEYS)]
             model_name = AI_MODELS.get(model_key, "deepseek/deepseek-chat")
+            headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
             full_messages = [{"role": "system", "content": system_prompt}] + messages
             data = {"model": model_name, "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
             r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
             
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"].strip()
-            elif r.status_code == 429:
-                old_model = model_key
-                current_idx = MODEL_ORDER.index(model_key) if model_key in MODEL_ORDER else 0
-                next_idx = (current_idx + 1) % len(MODEL_ORDER)
-                model_key = MODEL_ORDER[next_idx]
-                s = get_settings(chat_id)
-                s["ai_model"] = model_key
-                save_settings(chat_id)
-                log.info(f"Модель переключена: {old_model} → {model_key}")
-                if bot_instance and chat_id not in _switched_model:
-                    _switched_model[chat_id] = True
-                    try:
-                        bot_instance.send_message(chat_id, f"🔄 {old_model} исчерпан. Переключился на {model_key}.")
-                    except: pass
+            elif r.status_code in (429, 402):
+                # Меняем ключ
+                _current_key_index = (_current_key_index + 1) % len(OPENROUTER_KEYS)
+                log.info(f"Ключ {_current_key_index+1}/{len(OPENROUTER_KEYS)}")
             else:
                 return None
         return None
