@@ -734,15 +734,14 @@ def handle_message(message):
     if cid in _aimeme_mode and _aimeme_mode[cid]:
         _aimeme_mode[cid] = False
         bot.reply_to(message, "🤖 <b>Генерирую мем...</b>", parse_mode="HTML")
-        answer = ask_ai(f"Придумай текст для мема на тему: {text}. Выдай строго в формате: ВЕРХ: ... | НИЗ: ...", cid, bot)
-        if answer and "|" in answer:
-            parts = answer.split("|")
-            top = parts[0].replace("ВЕРХ:", "").strip()[:50]
-            bottom = parts[1].replace("НИЗ:", "").strip()[:50]
-            send_template_meme(bot, cid, texts=[top, bottom])
-        else: bot.send_message(cid, "не смог придумать")
+        answer = ask_ai(f"Придумай две короткие фразы для мема на тему: {text}. Выдай строго в формате: фраза1 | фраза2", cid, bot)
+        # Отладка — покажем что реально ответил ИИ
+        if answer:
+            bot.send_message(cid, f"Ответ ИИ: {answer[:200]}")
+        else:
+            bot.send_message(cid, "ИИ ничего не ответил")
         return
-    
+
     if cid in _aipoem_mode and _aipoem_mode[cid]:
         _aipoem_mode[cid] = False
         bot.reply_to(message, "🎵 <b>Сочиняю стих...</b>", parse_mode="HTML")
