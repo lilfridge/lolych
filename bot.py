@@ -430,7 +430,6 @@ def fun_menu():
     markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
     markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("🎬 Гифка", callback_data="gif"))
     markup.add(InlineKeyboardButton("💬 Микс", callback_data="mix"), InlineKeyboardButton("🎙 Голос", callback_data="voice"))
-    markup.add(InlineKeyboardButton("📊 Опрос", callback_data="poll"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
 
@@ -500,24 +499,6 @@ def cmd_start(message):
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
-# ─── Опрос ───────────────────────────────────────────────────────────────────
-@bot.message_handler(commands=["опрос", "poll"])
-def cmd_poll(message):
-    cid = message.chat.id
-    text = message.text.split(maxsplit=1)
-    if len(text) < 2:
-        bot.reply_to(message, "Напиши: /опрос Вопрос? Вариант1, Вариант2")
-        return
-    parts = text[1].split("?")
-    if len(parts) < 2:
-        bot.reply_to(message, "Поставь ? после вопроса")
-        return
-    question = parts[0].strip() + "?"
-    options = [o.strip() for o in parts[1].split(",") if o.strip()]
-    if len(options) < 2: options = ["Да", "Нет"]
-    if len(options) > 10: options = options[:10]
-    bot.send_poll(cid, question=question, options=options, is_anonymous=False)
-
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
@@ -536,9 +517,7 @@ def handle_buttons(call):
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
     
-    if call.data == "poll":
-        bot.edit_message_text("📊 <b>Напиши в чат:</b>\n/опрос Вопрос? Вариант1, Вариант2", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data == "menu_clear":
+    if call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
