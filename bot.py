@@ -457,86 +457,163 @@ def get_user_msgs(chat_id, name):
 bot = telebot.TeleBot(TOKEN)
 
 # ─── Меню ────────────────────────────────────────────────────────────────────
+SEP = "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈"
+
 def main_menu(cid):
+    msgs = _load(cid, "messages")
+    photos = _load(cid, "photos")
+    users = _load(cid, "users")
+    model = get_ai_model(cid)
+    lv = get_level(cid)
+    lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
+    
+    txt = f"""🃏 <b>Лолыч</b>
+
+📋 <b>Главное меню</b>
+🔧 ID: <code>{cid}</code>
+🧠 {model} · ⭐ {lv_name}
+
+📚 Сообщений: {len(msgs)}
+🖼 Фото: {len(photos)} · 👥: {len(users)}
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
     markup.add(InlineKeyboardButton("🤖 ИИ", callback_data="menu_ai"))
-    return markup
+    return txt, markup
 
 def fun_menu():
+    txt = f"""🎪 <b>Тут мои таланты</b>
+
+Смотри, не упади со смеху 😏
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("🤖 ИИ Мем", callback_data="menu_aimeme"))
     markup.add(InlineKeyboardButton("😔 Демотиватор", callback_data="dem"), InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
     markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
     markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
-    return markup
+    return txt, markup
 
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
+    txt = f"""⚙️ <b>Настройки</b>
+
+Крути как хочешь, я запомню 🤙
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("📊 Стата", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
+    markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
+    markup.add(InlineKeyboardButton("⭐ Активность", callback_data="menu_activity"))
     markup.add(InlineKeyboardButton("🧠 Модель ИИ", callback_data="menu_model"))
     markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
-    markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
-    markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
-    return markup
+    return txt, markup
 
-def level_menu(cid):
+def activity_menu(cid):
     lv = get_level(cid)
+    no_mat = is_no_mat(cid)
+    lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
+    
+    txt = f"""⭐ <b>Активность</b>
+
+Уровень: {lv} ({lv_name})
+Мат: {'✅ разрешён' if not no_mat else '🚫 запрещён'}
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=3)
     btns = []
     for i in [1,2,3]:
-        label = f"{'✅ ' if i==lv else ''}{i} ({ {1:'молчун',2:'редко',3:'часто'}[i]})"
+        label = f"{'✅ ' if i==lv else ''}{i}\n{ {1:'молчун',2:'редко',3:'часто'}[i]}"
         btns.append(InlineKeyboardButton(label, callback_data=f"setlevel_{i}"))
     markup.add(*btns)
+    markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-    return markup
+    return txt, markup
+
+def level_menu(cid):
+    return activity_menu(cid)
 
 def ai_menu(cid):
+    txt = f"""🧠 <b>Искусственный интеллект</b>
+
+Я умею думать... иногда 🤔
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("💬 Ответы", callback_data="menu_ai_answers"))
     markup.add(InlineKeyboardButton("🎨 Творчество", callback_data="menu_ai_creative"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
-    return markup
+    return txt, markup
 
 def ai_answers_menu():
+    txt = f"""💬 <b>Задай мне вопрос</b>
+или попроси помочь
+
+Я постараюсь не тупить 🤞
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
     markup.add(InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
     markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"))
     markup.add(InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
-    return markup
+    return txt, markup
 
 def ai_creative_menu():
+    txt = f"""🎨 <b>Я могу сочинять</b>
+и придумывать всякое
+
+Шутки, истории, стихи — легко 🎭
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
     markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
     markup.add(InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
-    return markup
+    return txt, markup
 
 def model_menu(cid):
     model = get_ai_model(cid)
+    txt = f"""🧠 <b>Модель ИИ</b>
+
+Выбери кто будет думать
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     for key, label in [("deepseek","DeepSeek"),("llama","Llama 3")]:
         mark = "✅ " if model==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-    return markup
+    return txt, markup
 
 def style_menu(cid):
     mode = get_ai_mode(cid)
+    txt = f"""🎭 <b>Стиль ИИ</b>
+
+Как мне отвечать?
+
+{SEP}"""
+    
     markup = InlineKeyboardMarkup(row_width=2)
     for key, label in [("normal","Обычный"),("angry","Злой"),("philosopher","Философ"),("gopnik","Гопник")]:
         mark = "✅ " if mode==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-    return markup
+    return txt, markup
 
 # ─── Приветствие ─────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["new_chat_members"])
@@ -551,7 +628,8 @@ def cmd_start(message):
     cid = message.chat.id
     for d in [_ask_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode]:
         d[cid] = False
-    bot.send_message(cid, "🎭 <b>Лолыч:</b>", reply_markup=main_menu(cid), parse_mode="HTML")
+    txt, markup = main_menu(cid)
+    bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
@@ -560,15 +638,16 @@ def handle_buttons(call):
     cid = call.message.chat.id
     
     nav = {
-        "menu_back": ("🎭 <b>Лолыч:</b>", main_menu(cid)),
-        "menu_fun": ("😂 <b>Развлечения:</b>", fun_menu()),
-        "menu_params": ("⚙️ <b>Параметры:</b>", params_menu(cid)),
-        "menu_ai": ("🤖 <b>ИИ:</b>", ai_menu(cid)),
-        "menu_ai_answers": ("💬 <b>Ответы:</b>", ai_answers_menu()),
-        "menu_ai_creative": ("🎨 <b>Творчество:</b>", ai_creative_menu()),
-        "level_menu": ("⭐ <b>Уровень:</b>", level_menu(cid)),
-        "menu_model": ("🧠 <b>Модель ИИ:</b>", model_menu(cid)),
-        "menu_style": ("🎭 <b>Стиль ИИ:</b>", style_menu(cid)),
+        "menu_back": main_menu(cid),
+        "menu_fun": fun_menu(),
+        "menu_params": params_menu(cid),
+        "menu_ai": ai_menu(cid),
+        "menu_ai_answers": ai_answers_menu(),
+        "menu_ai_creative": ai_creative_menu(),
+        "menu_model": model_menu(cid),
+        "menu_style": style_menu(cid),
+        "menu_activity": activity_menu(cid),
+        "level_menu": level_menu(cid),
     }
     
     if call.data in nav:
@@ -624,23 +703,28 @@ def handle_buttons(call):
             bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "toggle_mat":
         s = get_settings(cid); s["no_mat"] = not s.get("no_mat", False); save_settings(cid)
-        bot.edit_message_text("⚙️ <b>Параметры:</b>", cid, call.message.message_id, reply_markup=params_menu(cid), parse_mode="HTML")
+        txt, markup = activity_menu(cid)
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "toggle_mute":
         s = get_settings(cid); s["muted"] = not s.get("muted", False); save_settings(cid)
-        bot.edit_message_text("⚙️ <b>Параметры:</b>", cid, call.message.message_id, reply_markup=params_menu(cid), parse_mode="HTML")
+        txt, markup = params_menu(cid)
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data.startswith("setlevel_"):
         lv = int(call.data.split("_")[1])
         s = get_settings(cid); s["level"] = lv; save_settings(cid)
-        bot.edit_message_text(f"⭐ <b>Уровень: {lv}</b>", cid, call.message.message_id, reply_markup=level_menu(cid), parse_mode="HTML")
+        txt, markup = activity_menu(cid)
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data.startswith("style_"):
         mode = call.data.split("_")[1]
         s = get_settings(cid); s["ai_mode"] = mode; save_settings(cid)
-        bot.edit_message_text(f"🎭 <b>Стиль: {mode}</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
+        txt, markup = style_menu(cid)
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data.startswith("model_"):
         model = call.data.split("_")[1]
         s = get_settings(cid); s["ai_model"] = model; save_settings(cid)
         _switched_model.pop(cid, None)
-        bot.edit_message_text(f"🧠 <b>Модель: {model}</b>", cid, call.message.message_id, reply_markup=model_menu(cid), parse_mode="HTML")
+        txt, markup = model_menu(cid)
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
@@ -656,13 +740,6 @@ def handle_buttons(call):
         gif_url = get_random_gif()
         if gif_url: bot.send_document(cid, gif_url)
         else: bot.send_message(cid, "не нашёл гифку")
-    elif call.data == "stats":
-        msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
-        s=get_settings(cid)
-        model = get_ai_model(cid)
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-        bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• Модель: {model}", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
