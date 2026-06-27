@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
 OPENROUTER_KEY = "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"
 GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
-REPLICATE_KEY = "r8_EPPoQYbGzDZo4cN62yC4OJKpAqSorHS2HDhdT"
+REPLICATE_KEY = "r8_LSuMWzVRoaQuDvPwI5NQikjlDpcBaF33ZvcEY"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
