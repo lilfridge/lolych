@@ -18,17 +18,16 @@ log = logging.getLogger(__name__)
 TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
 OPENROUTER_KEY = "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"
 GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
+REPLICATE_KEY = "r8_EPPoQYbGzDZo4cN62yC4OJKpAqSorHS2HDhdT"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
-# (мем_мин, мем_макс, войс_мин, войс_макс, дем_мин, дем_макс, мат_мин, мат_макс, стик_мин, стик_макс, гиф_мин, гиф_макс, random_chance)
 LEVELS = {
     1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
     2: (350, 500, 600, 800, 400, 600, 500, 1000, 500, 800, 700, 1000, 0.03),
     3: (100, 250, 200, 400, 100, 300, 200, 300, 100, 200, 100, 200, 0.30),
 }
 
-# (реакция_на_мат, кто_шанс, лолыч_шанс, фото_реакция, когда_шанс)
 LEVEL_EXTRAS = {
     1: (0.01, 0.05, 0.30, 0.05, 0.05),
     2: (0.03, 0.20, 0.60, 0.15, 0.20),
@@ -105,6 +104,16 @@ AI_MODES = {
     "gopnik": "Ты — бот Лолыч. Ты гопник. Отвечай дерзко, на районе.",
 }
 
+REPLICATE_MODELS = {
+    "anime": "cjwbw/animegan2:1d2e5f1d5e5d5e5d5e5d5e5d5e5d5e5d",
+    "face": "tencentarc/gfpgan:9283608cc6b7be9b65a8e44978db0cfc",
+    "upscale": "nightmareai/real-esrgan:42fed1c4974146d4c2412e2e2f7b5b5b",
+    "vangogh": "cjwbw/style-transfer:van-gogh",
+    "cyberpunk": "cjwbw/style-transfer:cyberpunk",
+    "sketch": "cjwbw/line-art:1d2e5f1d5e5d5e5d5e5d5e5d5e5d5e5d",
+    "oil": "cjwbw/style-transfer:oil-painting",
+}
+
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
@@ -117,6 +126,9 @@ _rofl_mode = {}
 _kto_ai_mode = {}
 _dialog_mode = {}
 _story_mode = {}
+_aimeme_mode = {}
+_aipoem_mode = {}
+_photo_mode = {}
 _dialog_codes = {}
 _dialog_history = {}
 
@@ -224,64 +236,77 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
-# ─── OpenRouter ─────────────────────────────────────────────────────────────────
-def ask_ai(prompt, chat_id):
+# ─── OpenRouter (универсальная функция) ────────────────────────────────────────
+def call_deepseek(messages, chat_id, max_tokens=150):
     try:
-        context = " ".join(_load(chat_id, "messages")[-20:])
         mode = get_ai_mode(chat_id)
         system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
         headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        data = {
-            "model": "deepseek/deepseek-chat",
-            "messages": [
-                {"role": "system", "content": f"{system_prompt} Контекст чата: {context[:300]}"},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 150, "temperature": 0.9
-        }
+        full_messages = [{"role": "system", "content": system_prompt}] + messages
+        data = {"model": "deepseek/deepseek-chat", "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
         r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
         if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
     except: pass
     return None
+
+def ask_ai(prompt, chat_id):
+    context = " ".join(_load(chat_id, "messages")[-20:])
+    return call_deepseek([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 150)
 
 def ask_ai_long(prompt, chat_id):
-    """Как ask_ai, но с более длинным ответом"""
-    try:
-        context = " ".join(_load(chat_id, "messages")[-20:])
-        mode = get_ai_mode(chat_id)
-        system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
-        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        data = {
-            "model": "deepseek/deepseek-chat",
-            "messages": [
-                {"role": "system", "content": f"{system_prompt} Контекст чата: {context[:300]}"},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 400, "temperature": 0.9
-        }
-        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=30)
-        if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
-    except: pass
-    return None
+    context = " ".join(_load(chat_id, "messages")[-20:])
+    return call_deepseek([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 400)
 
 def ask_ai_with_history(chat_id, user_text):
-    """Диалог с памятью 5 сообщений"""
     if chat_id not in _dialog_history: _dialog_history[chat_id] = []
     _dialog_history[chat_id].append({"role": "user", "content": user_text})
-    if len(_dialog_history[chat_id]) > 5:
-        _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
+    if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
+    reply = call_deepseek(_dialog_history[chat_id], chat_id, 150)
+    if reply:
+        _dialog_history[chat_id].append({"role": "assistant", "content": reply})
+        if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
+    return reply
+
+# ─── Replicate ─────────────────────────────────────────────────────────────────
+def replicate_process(photo_bytes, model_key):
+    """Отправляет фото в Replicate и возвращает URL результата"""
     try:
-        mode = get_ai_mode(chat_id)
-        system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
-        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        messages = [{"role": "system", "content": system_prompt}] + _dialog_history[chat_id]
-        data = {"model": "deepseek/deepseek-chat", "messages": messages, "max_tokens": 150, "temperature": 0.9}
-        r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
-        if r.status_code == 200:
-            reply = r.json()["choices"][0]["message"]["content"].strip()
-            _dialog_history[chat_id].append({"role": "assistant", "content": reply})
-            if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
-            return reply
+        # Загружаем фото на Replicate
+        headers = {"Authorization": f"Token {REPLICATE_KEY}"}
+        photo_b64 = io.BytesIO(photo_bytes)
+        
+        # Для простоты используем прямую загрузку
+        upload_resp = requests.post("https://api.replicate.com/v1/files", headers=headers, files={"content": ("image.jpg", photo_b64, "image/jpeg")})
+        if upload_resp.status_code != 201: return None
+        image_url = upload_resp.json()["urls"]["get"]
+        
+        # Создаём предсказание
+        model_map = {
+            "anime": ("cjwbw/animegan2", {"image": image_url}),
+            "face": ("tencentarc/gfpgan", {"img": image_url, "scale": 2}),
+            "upscale": ("nightmareai/real-esrgan", {"image": image_url}),
+            "vangogh": ("cjwbw/style-transfer", {"image": image_url, "style": "van-gogh"}),
+            "cyberpunk": ("cjwbw/style-transfer", {"image": image_url, "style": "cyberpunk"}),
+            "sketch": ("cjwbw/line-art", {"image": image_url}),
+            "oil": ("cjwbw/style-transfer", {"image": image_url, "style": "oil-painting"}),
+        }
+        
+        if model_key not in model_map: return None
+        model_name, input_data = model_map[model_key]
+        
+        pred_resp = requests.post(f"https://api.replicate.com/v1/models/{model_name}/predictions", headers=headers, json={"input": input_data})
+        if pred_resp.status_code != 201: return None
+        pred_id = pred_resp.json()["id"]
+        
+        # Ждём результат
+        for _ in range(30):
+            time.sleep(3)
+            check = requests.get(f"https://api.replicate.com/v1/predictions/{pred_id}", headers=headers)
+            if check.status_code == 200:
+                data = check.json()
+                if data["status"] == "succeeded":
+                    return data["output"] if isinstance(data["output"], str) else data["output"][0]
+                elif data["status"] == "failed": return None
     except: pass
     return None
 
@@ -316,26 +341,17 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
 def mix_messages(chat_id):
     _save(chat_id, "messages")
     path = _chat_file(chat_id, "messages.json")
-    if not os.path.exists(path):
-        return random.choice(EMPTY_PHRASES)
-    with open(path, "r", encoding="utf-8") as f:
-        msgs = json.load(f)
-    if len(msgs) < 2:
-        return random.choice(EMPTY_PHRASES)
+    if not os.path.exists(path): return random.choice(EMPTY_PHRASES)
+    with open(path, "r", encoding="utf-8") as f: msgs = json.load(f)
+    if len(msgs) < 2: return random.choice(EMPTY_PHRASES)
     recent = msgs[-100:]
     msg1 = random.choice(recent)
     msg2 = random.choice(recent)
-    words1 = msg1.split()
-    words2 = msg2.split()
-    # Если одно из сообщений короткое — берём целиком
-    if len(words1) < 2:
-        half1 = words1
-    else:
-        half1 = words1[:len(words1)//2]
-    if len(words2) < 2:
-        half2 = words2
-    else:
-        half2 = words2[len(words2)//2:]
+    words1 = msg1.split(); words2 = msg2.split()
+    if len(words1) < 2: half1 = words1
+    else: half1 = words1[:len(words1)//2]
+    if len(words2) < 2: half2 = words2
+    else: half2 = words2[len(words2)//2:]
     return " ".join(half1 + half2)
 
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
@@ -397,12 +413,12 @@ def make_imgflip_meme(template_id, texts):
     except: pass
     return None
 
-def send_template_meme(bot_instance, chat_id, reply_to=None):
+def send_template_meme(bot_instance, chat_id, reply_to=None, texts=None):
     tid = random.choice(IMGFLIP_TEMPLATES)
-    words = _chat_words(chat_id)
-    if not words: texts = [random.choice(EMPTY_PHRASES) for _ in range(2)]
-    else: texts = [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,3))]
-    url = make_imgflip_meme(tid, texts)
+    if not texts:
+        words = _chat_words(chat_id)
+        texts = [random.choice(EMPTY_PHRASES) for _ in range(2)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(2)]
+    url = make_imgflip_meme(tid, texts[:2])
     if url:
         try:
             img_data = requests.get(url, timeout=15).content
@@ -455,7 +471,6 @@ def get_random_user(chat_id):
     return random.choice(list(u.values()))["name"] if u else None
 
 def get_user_msgs(chat_id, name):
-    """Возвращает последние сообщения конкретного юзера"""
     users = get_users(chat_id)
     for uid, data in users.items():
         if data["name"].lower() == name.lower():
@@ -475,9 +490,10 @@ def main_menu(cid):
 
 def fun_menu():
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
-    markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("🎬 Гифка", callback_data="gif"))
-    markup.add(InlineKeyboardButton("💬 Микс", callback_data="mix"), InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("🤖 ИИ Мем", callback_data="menu_aimeme"))
+    markup.add(InlineKeyboardButton("😔 Демотиватор", callback_data="dem"), InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
+    markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
+    markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -488,6 +504,7 @@ def params_menu(cid):
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
     markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
+    markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -504,14 +521,39 @@ def level_menu(cid):
 
 def ai_menu(cid):
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
-    markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
-    markup.add(InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
-    markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"))
-    markup.add(InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
-    markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
-    markup.add(InlineKeyboardButton("🎭 Стиль", callback_data="menu_style"))
+    markup.add(InlineKeyboardButton("💬 Ответы", callback_data="menu_ai_answers"))
+    markup.add(InlineKeyboardButton("🎨 Творчество", callback_data="menu_ai_creative"))
+    markup.add(InlineKeyboardButton("🖼 Фото", callback_data="menu_ai_photo"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+    return markup
+
+def ai_answers_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton("🤖 ИИ ответ", callback_data="menu_ask"))
+    markup.add(InlineKeyboardButton("💬 Диалог", callback_data="menu_dialog"))
+    markup.add(InlineKeyboardButton("🎲 Кто...", callback_data="menu_kto_ai"))
+    markup.add(InlineKeyboardButton("🔥 Рофл", callback_data="menu_rofl"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
+    return markup
+
+def ai_creative_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
+    markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
+    markup.add(InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
+    return markup
+
+def ai_photo_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton("🎨 Аниме", callback_data="photo_anime"))
+    markup.add(InlineKeyboardButton("🧑 Лицо", callback_data="photo_face"))
+    markup.add(InlineKeyboardButton("🔍 Качество", callback_data="photo_upscale"))
+    markup.add(InlineKeyboardButton("🖌 Ван Гог", callback_data="photo_vangogh"))
+    markup.add(InlineKeyboardButton("🌆 Киберпанк", callback_data="photo_cyberpunk"))
+    markup.add(InlineKeyboardButton("✏️ Эскиз", callback_data="photo_sketch"))
+    markup.add(InlineKeyboardButton("🖼 Масло", callback_data="photo_oil"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
     return markup
 
 def style_menu(cid):
@@ -520,7 +562,7 @@ def style_menu(cid):
     for key, label in [("normal","Обычный"),("angry","Злой"),("philosopher","Философ"),("gopnik","Гопник")]:
         mark = "✅ " if mode==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return markup
 
 # ─── Приветствие ─────────────────────────────────────────────────────────────
@@ -534,7 +576,7 @@ def handle_new_member(message):
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
-    for d in [_ask_mode, _draw_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode]:
+    for d in [_ask_mode, _draw_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode, _photo_mode]:
         d[cid] = False
     bot.send_message(cid, "🎭 <b>Лолыч:</b>", reply_markup=main_menu(cid), parse_mode="HTML")
 
@@ -544,11 +586,15 @@ def handle_buttons(call):
     bot.answer_callback_query(call.id)
     cid = call.message.chat.id
     
+    # Навигация
     nav = {
         "menu_back": ("🎭 <b>Лолыч:</b>", main_menu(cid)),
         "menu_fun": ("😂 <b>Развлечения:</b>", fun_menu()),
         "menu_params": ("⚙️ <b>Параметры:</b>", params_menu(cid)),
         "menu_ai": ("🤖 <b>ИИ:</b>", ai_menu(cid)),
+        "menu_ai_answers": ("💬 <b>Ответы:</b>", ai_answers_menu()),
+        "menu_ai_creative": ("🎨 <b>Творчество:</b>", ai_creative_menu()),
+        "menu_ai_photo": ("🖼 <b>Фото (ИИ):</b>", ai_photo_menu()),
         "level_menu": ("⭐ <b>Уровень:</b>", level_menu(cid)),
         "menu_style": ("🎭 <b>Стиль ИИ:</b>", style_menu(cid)),
     }
@@ -583,6 +629,16 @@ def handle_buttons(call):
     elif call.data == "menu_story":
         _story_mode[cid] = True
         bot.edit_message_text("📖 <b>Напиши тему для истории</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_aimeme":
+        _aimeme_mode[cid] = True
+        bot.edit_message_text("🤖 <b>Напиши тему для мема (или просто напиши что-нибудь)</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_aipoem":
+        _aipoem_mode[cid] = True
+        bot.edit_message_text("🎵 <b>Напиши тему для стиха</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data.startswith("photo_"):
+        model = call.data.split("_")[1]
+        _photo_mode[cid] = model
+        bot.edit_message_text(f"🖼 <b>Ответь (reply) на фото, чтобы применить фильтр</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
@@ -697,8 +753,30 @@ def handle_message(message):
     if cid in _story_mode and _story_mode[cid]:
         _story_mode[cid] = False
         bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
-        answer = ask_ai_long(f"Напиши абсурдную, безумную историю на тему: {text}. Пусть будет странно, смешно и непредсказуемо. Пиши много предложений. Персонажи пусть творят дичь. Концовка должна быть неожиданной и безумной.", cid)
+        answer = ask_ai_long(f"Напиши абсурдную, безумную историю на тему: {text}. Пусть будет странно, смешно и непредсказуемо. Персонажи пусть творят дичь. Концовка должна быть неожиданной и безумной.", cid)
         if answer: bot.send_message(cid, f"📖 {answer}")
+        else: bot.send_message(cid, "не смог")
+        return
+    
+    # 🤖 ИИ Мем
+    if cid in _aimeme_mode and _aimeme_mode[cid]:
+        _aimeme_mode[cid] = False
+        bot.reply_to(message, "🤖 <b>Генерирую мем...</b>", parse_mode="HTML")
+        answer = ask_ai(f"Придумай текст для мема на тему: {text}. Выдай строго в формате: ВЕРХ: ... | НИЗ: ...", cid)
+        if answer and "|" in answer:
+            parts = answer.split("|")
+            top = parts[0].replace("ВЕРХ:", "").strip()[:50]
+            bottom = parts[1].replace("НИЗ:", "").strip()[:50]
+            send_template_meme(bot, cid, texts=[top, bottom])
+        else: bot.send_message(cid, "не смог придумать")
+        return
+    
+    # 🎵 ИИ Стих
+    if cid in _aipoem_mode and _aipoem_mode[cid]:
+        _aipoem_mode[cid] = False
+        bot.reply_to(message, "🎵 <b>Сочиняю стих...</b>", parse_mode="HTML")
+        answer = ask_ai_long(f"Напиши короткое стихотворение (4 строки) с рифмой на тему: {text}. Будь креативным.", cid)
+        if answer: bot.send_message(cid, f"🎵 {answer}")
         else: bot.send_message(cid, "не смог")
         return
     
@@ -769,6 +847,23 @@ def handle_photo(message):
     fid=message.photo[-1].file_id
     add_photo(cid, fid)
     cap=(message.caption or "").lower()
+    
+    # Обработка фото через Replicate (если включён режим)
+    if cid in _photo_mode and _photo_mode[cid] and message.reply_to_message:
+        model = _photo_mode[cid]
+        _photo_mode[cid] = False
+        bot.reply_to(message, "🖼 <b>Обрабатываю фото...</b>\n(может занять до минуты)", parse_mode="HTML")
+        try:
+            fi = bot.get_file(fid)
+            dl = bot.download_file(fi.file_path)
+            result_url = replicate_process(dl, model)
+            if result_url:
+                result_img = requests.get(result_url, timeout=15).content
+                bot.send_photo(cid, result_img)
+            else: bot.send_message(cid, "не смог обработать")
+        except: bot.send_message(cid, "ошибка обработки")
+        return
+    
     extras = LEVEL_EXTRAS.get(get_level(cid), LEVEL_EXTRAS[1])
     
     if any(w in cap for w in ["мем","meme"]): send_template_meme(bot, cid, message.message_id)
