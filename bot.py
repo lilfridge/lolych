@@ -11,7 +11,7 @@ import io
 import textwrap
 import logging
 from gtts import gTTS
-import time
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -19,11 +19,11 @@ log = logging.getLogger(__name__)
 TOKEN = os.environ.get("TOKEN")
 OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")
 GIPHY_KEY = os.environ.get("GIPHY_KEY")
-REPLICATE_KEY = os.environ.get("REPLICATE_KEY")
 IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
+DRAW_LIMIT = 5
 
 LEVELS = {
     1: (600, 700, 800, 1000, 500, 700, 500, 1000, 600, 1000, 800, 1200, 0.005),
@@ -105,6 +105,13 @@ AI_MODES = {
     "gopnik": "Ты — бот Лолыч. Ты гопник. Отвечай дерзко, на районе.",
 }
 
+AI_MODELS = {
+    "deepseek": "deepseek/deepseek-chat",
+    "gemini": "google/gemini-2.0-flash",
+    "llama": "meta-llama/llama-3.1-8b-instruct",
+    "mistral": "mistralai/mistral-7b-instruct",
+}
+
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
@@ -119,7 +126,6 @@ _dialog_mode = {}
 _story_mode = {}
 _aimeme_mode = {}
 _aipoem_mode = {}
-_photo_mode = {}
 _dialog_codes = {}
 _dialog_history = {}
 
@@ -128,9 +134,10 @@ def _load(chat_id, key):
     if cache_key in _cache: return _cache[cache_key]
     path = _chat_file(chat_id, f"{key}.json")
     if not os.path.exists(path):
-        default = {} if key in ("users","counter","settings") else []
+        default = {} if key in ("users","counter","settings","draw_counter") else []
         if key == "counter": default = {"msgs":0,"meme":0,"voice":0,"mat":0,"dem":0,"stick":0,"gif":0}
-        if key == "settings": default = {"level":1,"muted":False,"no_mat":False,"ai_mode":"normal"}
+        if key == "settings": default = {"level":1,"muted":False,"no_mat":False,"ai_mode":"normal","ai_model":"deepseek"}
+        if key == "draw_counter": default = {"count":0,"date":""}
         _cache[cache_key] = default
         return default
     with open(path, "r", encoding="utf-8") as f: _cache[cache_key] = json.load(f)
@@ -186,6 +193,7 @@ def get_level(chat_id): return get_settings(chat_id).get("level",1)
 def is_muted(chat_id): return get_settings(chat_id).get("muted",False)
 def is_no_mat(chat_id): return get_settings(chat_id).get("no_mat",False)
 def get_ai_mode(chat_id): return get_settings(chat_id).get("ai_mode","normal")
+def get_ai_model(chat_id): return get_settings(chat_id).get("ai_model","deepseek")
 def get_counter(chat_id): return _load(chat_id, "counter")
 def save_counter(chat_id): _save(chat_id, "counter")
 
@@ -228,13 +236,15 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     return text.strip()
 
 # ─── OpenRouter ─────────────────────────────────────────────────────────────────
-def call_deepseek(messages, chat_id, max_tokens=150):
+def call_ai(messages, chat_id, max_tokens=150):
     try:
         mode = get_ai_mode(chat_id)
+        model_key = get_ai_model(chat_id)
+        model_name = AI_MODELS.get(model_key, "deepseek/deepseek-chat")
         system_prompt = AI_MODES.get(mode, AI_MODES["normal"])
         headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
         full_messages = [{"role": "system", "content": system_prompt}] + messages
-        data = {"model": "deepseek/deepseek-chat", "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
+        data = {"model": model_name, "messages": full_messages, "max_tokens": max_tokens, "temperature": 0.9}
         r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=25)
         if r.status_code == 200: return r.json()["choices"][0]["message"]["content"].strip()
     except: pass
@@ -242,57 +252,38 @@ def call_deepseek(messages, chat_id, max_tokens=150):
 
 def ask_ai(prompt, chat_id):
     context = " ".join(_load(chat_id, "messages")[-20:])
-    return call_deepseek([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 150)
+    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 150)
 
 def ask_ai_long(prompt, chat_id):
     context = " ".join(_load(chat_id, "messages")[-20:])
-    return call_deepseek([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 400)
+    return call_ai([{"role": "user", "content": f"Контекст чата: {context[:300]}\n\n{prompt}"}], chat_id, 400)
 
 def ask_ai_with_history(chat_id, user_text):
     if chat_id not in _dialog_history: _dialog_history[chat_id] = []
     _dialog_history[chat_id].append({"role": "user", "content": user_text})
     if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
-    reply = call_deepseek(_dialog_history[chat_id], chat_id, 150)
+    reply = call_ai(_dialog_history[chat_id], chat_id, 150)
     if reply:
         _dialog_history[chat_id].append({"role": "assistant", "content": reply})
         if len(_dialog_history[chat_id]) > 5: _dialog_history[chat_id] = _dialog_history[chat_id][-5:]
     return reply
 
-# ─── Replicate ─────────────────────────────────────────────────────────────────
-def replicate_process(photo_bytes, model_key):
+def generate_image(prompt, chat_id):
+    draw_data = _load(chat_id, "draw_counter")
+    if not isinstance(draw_data, dict): draw_data = {"count":0,"date":""}
+    today = datetime.now().strftime("%Y-%m-%d")
+    if draw_data.get("date") != today: draw_data = {"count":0,"date":today}
+    if draw_data["count"] >= DRAW_LIMIT:
+        _save(chat_id, "draw_counter")
+        return "limit"
     try:
-        headers = {"Authorization": f"Token {REPLICATE_KEY}"}
-        photo_b64 = io.BytesIO(photo_bytes)
-        
-        upload_resp = requests.post("https://api.replicate.com/v1/files", headers=headers, files={"content": ("image.jpg", photo_b64, "image/jpeg")})
-        if upload_resp.status_code != 201: return None
-        image_url = upload_resp.json()["urls"]["get"]
-        
-        model_map = {
-            "anime": ("cjwbw/animegan2", {"image": image_url}),
-            "face": ("tencentarc/gfpgan", {"img": image_url, "scale": 2}),
-            "upscale": ("nightmareai/real-esrgan", {"image": image_url}),
-            "vangogh": ("cjwbw/style-transfer", {"image": image_url, "style": "van-gogh"}),
-            "cyberpunk": ("cjwbw/style-transfer", {"image": image_url, "style": "cyberpunk"}),
-            "sketch": ("cjwbw/line-art", {"image": image_url}),
-            "oil": ("cjwbw/style-transfer", {"image": image_url, "style": "oil-painting"}),
-        }
-        
-        if model_key not in model_map: return None
-        model_name, input_data = model_map[model_key]
-        
-        pred_resp = requests.post(f"https://api.replicate.com/v1/models/{model_name}/predictions", headers=headers, json={"input": input_data})
-        if pred_resp.status_code != 201: return None
-        pred_id = pred_resp.json()["id"]
-        
-        for _ in range(30):
-            time.sleep(3)
-            check = requests.get(f"https://api.replicate.com/v1/predictions/{pred_id}", headers=headers)
-            if check.status_code == 200:
-                data = check.json()
-                if data["status"] == "succeeded":
-                    return data["output"] if isinstance(data["output"], str) else data["output"][0]
-                elif data["status"] == "failed": return None
+        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
+        data = {"model": "bytedance/sdxl-lightning-4step", "prompt": prompt, "n": 1, "size": "512x512"}
+        r = requests.post("https://openrouter.ai/api/v1/images/generations", headers=headers, json=data, timeout=30)
+        if r.status_code == 200:
+            draw_data["count"] += 1; draw_data["date"] = today
+            _save(chat_id, "draw_counter")
+            return r.json()["data"][0]["url"]
     except: pass
     return None
 
@@ -479,7 +470,7 @@ def fun_menu():
     markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("🤖 ИИ Мем", callback_data="menu_aimeme"))
     markup.add(InlineKeyboardButton("😔 Демотиватор", callback_data="dem"), InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
     markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-    markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
+    markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -487,10 +478,10 @@ def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("📊 Стата", callback_data="stats"), InlineKeyboardButton("⭐ Уровень", callback_data="level_menu"))
+    markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton(f"{'✅ Мат разрешён' if not no_mat else '🚫 Без мата'}", callback_data="toggle_mat"))
     markup.add(InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"))
-    markup.add(InlineKeyboardButton("🎭 Стиль ИИ", callback_data="menu_style"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -509,7 +500,6 @@ def ai_menu(cid):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("💬 Ответы", callback_data="menu_ai_answers"))
     markup.add(InlineKeyboardButton("🎨 Творчество", callback_data="menu_ai_creative"))
-    markup.add(InlineKeyboardButton("🖼 Фото", callback_data="menu_ai_photo"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return markup
 
@@ -527,27 +517,24 @@ def ai_creative_menu():
     markup.add(InlineKeyboardButton("😂 Шутка", callback_data="menu_joke"))
     markup.add(InlineKeyboardButton("📖 История", callback_data="menu_story"))
     markup.add(InlineKeyboardButton("🎵 ИИ Стих", callback_data="menu_aipoem"))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
-    return markup
-
-def ai_photo_menu():
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🎨 Аниме", callback_data="photo_anime"))
-    markup.add(InlineKeyboardButton("🧑 Лицо", callback_data="photo_face"))
-    markup.add(InlineKeyboardButton("🔍 Качество", callback_data="photo_upscale"))
-    markup.add(InlineKeyboardButton("🖌 Ван Гог", callback_data="photo_vangogh"))
-    markup.add(InlineKeyboardButton("🌆 Киберпанк", callback_data="photo_cyberpunk"))
-    markup.add(InlineKeyboardButton("✏️ Эскиз", callback_data="photo_sketch"))
-    markup.add(InlineKeyboardButton("🖼 Масло", callback_data="photo_oil"))
+    markup.add(InlineKeyboardButton("🎨 Картинка", callback_data="menu_draw"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_ai"))
     return markup
 
 def style_menu(cid):
     mode = get_ai_mode(cid)
+    model = get_ai_model(cid)
     markup = InlineKeyboardMarkup(row_width=2)
+    # Стиль общения
+    markup.add(InlineKeyboardButton("💬 Стиль общения:", callback_data="noop"))
     for key, label in [("normal","Обычный"),("angry","Злой"),("philosopher","Философ"),("gopnik","Гопник")]:
         mark = "✅ " if mode==key else ""
         markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"style_{key}"))
+    # Модель ИИ
+    markup.add(InlineKeyboardButton("🧠 Модель ИИ:", callback_data="noop"))
+    for key, label in [("deepseek","DeepSeek"),("gemini","Gemini"),("llama","Llama 3"),("mistral","Mistral")]:
+        mark = "✅ " if model==key else ""
+        markup.add(InlineKeyboardButton(f"{mark}{label}", callback_data=f"model_{key}"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return markup
 
@@ -562,7 +549,7 @@ def handle_new_member(message):
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
-    for d in [_ask_mode, _draw_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode, _photo_mode]:
+    for d in [_ask_mode, _draw_mode, _rofl_mode, _kto_ai_mode, _dialog_mode, _story_mode, _aimeme_mode, _aipoem_mode]:
         d[cid] = False
     bot.send_message(cid, "🎭 <b>Лолыч:</b>", reply_markup=main_menu(cid), parse_mode="HTML")
 
@@ -579,7 +566,6 @@ def handle_buttons(call):
         "menu_ai": ("🤖 <b>ИИ:</b>", ai_menu(cid)),
         "menu_ai_answers": ("💬 <b>Ответы:</b>", ai_answers_menu()),
         "menu_ai_creative": ("🎨 <b>Творчество:</b>", ai_creative_menu()),
-        "menu_ai_photo": ("🖼 <b>Фото (ИИ):</b>", ai_photo_menu()),
         "level_menu": ("⭐ <b>Уровень:</b>", level_menu(cid)),
         "menu_style": ("🎭 <b>Стиль ИИ:</b>", style_menu(cid)),
     }
@@ -588,6 +574,8 @@ def handle_buttons(call):
         txt, markup = nav[call.data]
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
+    
+    if call.data == "noop": return
     
     if call.data == "menu_ask":
         _ask_mode[cid] = True
@@ -615,14 +603,13 @@ def handle_buttons(call):
         bot.edit_message_text("📖 <b>Напиши тему для истории</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_aimeme":
         _aimeme_mode[cid] = True
-        bot.edit_message_text("🤖 <b>Напиши тему для мема (или просто напиши что-нибудь)</b>", cid, call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text("🤖 <b>Напиши тему для мема</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_aipoem":
         _aipoem_mode[cid] = True
         bot.edit_message_text("🎵 <b>Напиши тему для стиха</b>", cid, call.message.message_id, parse_mode="HTML")
-    elif call.data.startswith("photo_"):
-        model = call.data.split("_")[1]
-        _photo_mode[cid] = model
-        bot.edit_message_text(f"🖼 <b>Ответь (reply) на фото, чтобы применить фильтр</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_draw":
+        _draw_mode[cid] = True
+        bot.edit_message_text("🎨 <b>Напиши описание картинки в чат</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "menu_clear":
         _clear_confirm[cid] = True
         markup = InlineKeyboardMarkup()
@@ -653,6 +640,10 @@ def handle_buttons(call):
         mode = call.data.split("_")[1]
         s = get_settings(cid); s["ai_mode"] = mode; save_settings(cid)
         bot.edit_message_text(f"🎭 <b>Стиль: {mode}</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
+    elif call.data.startswith("model_"):
+        model = call.data.split("_")[1]
+        s = get_settings(cid); s["ai_model"] = model; save_settings(cid)
+        bot.edit_message_text(f"🧠 <b>Модель: {model}</b>", cid, call.message.message_id, reply_markup=style_menu(cid), parse_mode="HTML")
     elif call.data == "meme":
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
@@ -671,9 +662,10 @@ def handle_buttons(call):
     elif call.data == "stats":
         msgs=_load(cid,"messages"); users=_load(cid,"users"); photos=_load(cid,"photos")
         s=get_settings(cid)
+        model = get_ai_model(cid)
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-        bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text(f"📊 <b>Хранилище:</b>\n• Сообщений: {len(msgs)}/{LIMITS['messages']}\n• Участников: {len(users)}\n• Фото: {len(photos)}/{LIMITS['photos']}\n• Уровень: {s.get('level',1)} ({ {1:'молчун',2:'редко',3:'часто'}[s.get('level',1)]})\n• Модель: {model}", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
@@ -691,6 +683,16 @@ def handle_message(message):
             _dialog_history[cid] = []
             bot.reply_to(message, "💬 <b>Диалог завершён.</b>", parse_mode="HTML")
             return
+    
+    # 🎨 Картинка
+    if cid in _draw_mode and _draw_mode[cid]:
+        _draw_mode[cid] = False
+        bot.reply_to(message, "🎨 Рисую...")
+        result = generate_image(text, cid)
+        if result == "limit": bot.send_message(cid, "жто не не, всё")
+        elif result: bot.send_photo(cid, result)
+        else: bot.send_message(cid, "не смог нарисовать")
+        return
     
     if cid in _rofl_mode and _rofl_mode[cid] and message.reply_to_message:
         _rofl_mode[cid] = False
@@ -822,22 +824,6 @@ def handle_photo(message):
     fid=message.photo[-1].file_id
     add_photo(cid, fid)
     cap=(message.caption or "").lower()
-    
-    if cid in _photo_mode and _photo_mode[cid]:
-        model = _photo_mode[cid]
-        _photo_mode[cid] = False
-        bot.reply_to(message, "🖼 <b>Обрабатываю фото...</b>\n(может занять до минуты)", parse_mode="HTML")
-        try:
-            fi = bot.get_file(fid)
-            dl = bot.download_file(fi.file_path)
-            result_url = replicate_process(dl, model)
-            if result_url:
-                result_img = requests.get(result_url, timeout=15).content
-                bot.send_photo(cid, result_img)
-            else: bot.send_message(cid, "не смог обработать")
-        except: bot.send_message(cid, "ошибка обработки")
-        return
-    
     extras = LEVEL_EXTRAS.get(get_level(cid), LEVEL_EXTRAS[1])
     
     if any(w in cap for w in ["мем","meme"]): send_template_meme(bot, cid, message.message_id)
