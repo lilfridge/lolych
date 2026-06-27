@@ -11,14 +11,17 @@ import io
 import textwrap
 import logging
 from gtts import gTTS
+import time
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-TOKEN = "8464842453:AAE4QiUoCGhNdjNyCA3vRLMuloDOIinMPGc"
-OPENROUTER_KEY = "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"
-GIPHY_KEY = "ks2qau91LISJrgKVPhhSGOTzsCiJUUZL"
-REPLICATE_KEY = "r8_LSuMWzVRoaQuDvPwI5NQikjlDpcBaF33ZvcEY"
+TOKEN = os.environ.get("TOKEN")
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")
+GIPHY_KEY = os.environ.get("GIPHY_KEY")
+REPLICATE_KEY = os.environ.get("REPLICATE_KEY")
+IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
+IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -71,8 +74,6 @@ STICKERS = [
     "https://i.postimg.cc/fWV8GP8t/IMG-4815.png",
 ]
 
-IMGFLIP_USER = "lilifridge"
-IMGFLIP_PASS = "eMsWrri64INeGJd"
 IMGFLIP_TEMPLATES = [
     181913649, 87743020, 93895088, 252600902, 131940431,
     89370399, 110163934, 61579, 101470, 217743513,
@@ -102,16 +103,6 @@ AI_MODES = {
     "angry": "Ты — бот Лолыч. Ты злой и агрессивный. Отвечай грубо и с подколами.",
     "philosopher": "Ты — бот Лолыч. Ты философ. Отвечай загадками и мудростями.",
     "gopnik": "Ты — бот Лолыч. Ты гопник. Отвечай дерзко, на районе.",
-}
-
-REPLICATE_MODELS = {
-    "anime": "cjwbw/animegan2:1d2e5f1d5e5d5e5d5e5d5e5d5e5d5e5d",
-    "face": "tencentarc/gfpgan:9283608cc6b7be9b65a8e44978db0cfc",
-    "upscale": "nightmareai/real-esrgan:42fed1c4974146d4c2412e2e2f7b5b5b",
-    "vangogh": "cjwbw/style-transfer:van-gogh",
-    "cyberpunk": "cjwbw/style-transfer:cyberpunk",
-    "sketch": "cjwbw/line-art:1d2e5f1d5e5d5e5d5e5d5e5d5e5d5e5d",
-    "oil": "cjwbw/style-transfer:oil-painting",
 }
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
@@ -236,7 +227,7 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
-# ─── OpenRouter (универсальная функция) ────────────────────────────────────────
+# ─── OpenRouter ─────────────────────────────────────────────────────────────────
 def call_deepseek(messages, chat_id, max_tokens=150):
     try:
         mode = get_ai_mode(chat_id)
@@ -269,18 +260,14 @@ def ask_ai_with_history(chat_id, user_text):
 
 # ─── Replicate ─────────────────────────────────────────────────────────────────
 def replicate_process(photo_bytes, model_key):
-    """Отправляет фото в Replicate и возвращает URL результата"""
     try:
-        # Загружаем фото на Replicate
         headers = {"Authorization": f"Token {REPLICATE_KEY}"}
         photo_b64 = io.BytesIO(photo_bytes)
         
-        # Для простоты используем прямую загрузку
         upload_resp = requests.post("https://api.replicate.com/v1/files", headers=headers, files={"content": ("image.jpg", photo_b64, "image/jpeg")})
         if upload_resp.status_code != 201: return None
         image_url = upload_resp.json()["urls"]["get"]
         
-        # Создаём предсказание
         model_map = {
             "anime": ("cjwbw/animegan2", {"image": image_url}),
             "face": ("tencentarc/gfpgan", {"img": image_url, "scale": 2}),
@@ -298,7 +285,6 @@ def replicate_process(photo_bytes, model_key):
         if pred_resp.status_code != 201: return None
         pred_id = pred_resp.json()["id"]
         
-        # Ждём результат
         for _ in range(30):
             time.sleep(3)
             check = requests.get(f"https://api.replicate.com/v1/predictions/{pred_id}", headers=headers)
@@ -586,7 +572,6 @@ def handle_buttons(call):
     bot.answer_callback_query(call.id)
     cid = call.message.chat.id
     
-    # Навигация
     nav = {
         "menu_back": ("🎭 <b>Лолыч:</b>", main_menu(cid)),
         "menu_fun": ("😂 <b>Развлечения:</b>", fun_menu()),
@@ -604,7 +589,6 @@ def handle_buttons(call):
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
     
-    # Режимы
     if call.data == "menu_ask":
         _ask_mode[cid] = True
         bot.edit_message_text("🤖 <b>Напиши свой вопрос в чат</b>", cid, call.message.message_id, parse_mode="HTML")
@@ -701,7 +685,6 @@ def handle_message(message):
     text=message.text; name=message.from_user.first_name or "Аноним"; uid=message.from_user.id
     add_message(cid, text); add_user_message(cid, uid, name, text)
     
-    # 💬 Диалог — проверка выхода
     if cid in _dialog_mode and _dialog_mode[cid]:
         if text.strip() == str(_dialog_codes.get(cid)):
             _dialog_mode[cid] = False
@@ -709,7 +692,6 @@ def handle_message(message):
             bot.reply_to(message, "💬 <b>Диалог завершён.</b>", parse_mode="HTML")
             return
     
-    # 🔥 Рофл
     if cid in _rofl_mode and _rofl_mode[cid] and message.reply_to_message:
         _rofl_mode[cid] = False
         target = message.reply_to_message.from_user.first_name
@@ -720,7 +702,6 @@ def handle_message(message):
         else: bot.send_message(cid, "не смог")
         return
     
-    # 🎲 Кто... (ИИ-версия)
     if cid in _kto_ai_mode and _kto_ai_mode[cid] and "кто" in text.lower():
         _kto_ai_mode[cid] = False
         u = get_random_user(cid)
@@ -732,7 +713,6 @@ def handle_message(message):
         else: bot.send_message(cid, f"🎲 это {u}, потому что я так сказал")
         return
     
-    # 🤖 ИИ ответ
     if cid in _ask_mode and _ask_mode[cid]:
         _ask_mode[cid] = False
         bot.reply_to(message, "🤔 Думаю...")
@@ -741,7 +721,6 @@ def handle_message(message):
         else: bot.send_message(cid, "не смог ответить")
         return
     
-    # 💬 Диалог
     if cid in _dialog_mode and _dialog_mode[cid]:
         bot.reply_to(message, "💬 Думаю...")
         answer = ask_ai_with_history(cid, text)
@@ -749,7 +728,6 @@ def handle_message(message):
         else: bot.reply_to(message, "не смог ответить")
         return
     
-    # 📖 История
     if cid in _story_mode and _story_mode[cid]:
         _story_mode[cid] = False
         bot.reply_to(message, "📖 <b>Пишу историю...</b>", parse_mode="HTML")
@@ -758,7 +736,6 @@ def handle_message(message):
         else: bot.send_message(cid, "не смог")
         return
     
-    # 🤖 ИИ Мем
     if cid in _aimeme_mode and _aimeme_mode[cid]:
         _aimeme_mode[cid] = False
         bot.reply_to(message, "🤖 <b>Генерирую мем...</b>", parse_mode="HTML")
@@ -771,7 +748,6 @@ def handle_message(message):
         else: bot.send_message(cid, "не смог придумать")
         return
     
-    # 🎵 ИИ Стих
     if cid in _aipoem_mode and _aipoem_mode[cid]:
         _aipoem_mode[cid] = False
         bot.reply_to(message, "🎵 <b>Сочиняю стих...</b>", parse_mode="HTML")
@@ -805,8 +781,7 @@ def handle_message(message):
             answer = ask_ai(clean or "скажи что-нибудь", cid)
             if answer: bot.reply_to(message, answer)
             else: bot.reply_to(message, absurd_word_salad(cid, clean))
-        else:
-            bot.reply_to(message, absurd_word_salad(cid, clean))
+        else: bot.reply_to(message, absurd_word_salad(cid, clean))
         return
     
     if has_mat(text) and not no_mat:
@@ -848,8 +823,7 @@ def handle_photo(message):
     add_photo(cid, fid)
     cap=(message.caption or "").lower()
     
-    # Обработка фото через Replicate (если включён режим)
-    if cid in _photo_mode and _photo_mode[cid] and message.reply_to_message:
+    if cid in _photo_mode and _photo_mode[cid]:
         model = _photo_mode[cid]
         _photo_mode[cid] = False
         bot.reply_to(message, "🖼 <b>Обрабатываю фото...</b>\n(может занять до минуты)", parse_mode="HTML")
