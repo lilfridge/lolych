@@ -457,7 +457,7 @@ def get_user_msgs(chat_id, name):
 bot = telebot.TeleBot(TOKEN)
 
 # ─── Меню ────────────────────────────────────────────────────────────────────
-SEP = "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈"
+SEP = ""
 
 def main_menu(cid):
     msgs = _load(cid, "messages")
