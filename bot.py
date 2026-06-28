@@ -280,6 +280,67 @@ def send_random_poll(bot_instance, chat_id):
     try: bot_instance.send_poll(chat_id, question=question, options=options, is_anonymous=False)
     except: pass
 
+# ─── Фотомем ──────────────────────────────────────────────────────────────────
+PHOTO_TEMPLATES = [
+    {
+        "url": "https://i.postimg.cc/qMz4QKYj/IMG-4826-2.png",
+        "photo_x": 0, "photo_y": 0, "photo_w": 0, "photo_h": 0,  # заглушка, подгоним
+        "text_x": 30, "text_y": 751, "text_w": 238, "text_h": 45
+    },
+]
+
+def make_photo_meme(chat_id):
+    photos = get_photos(chat_id)
+    if not photos: return None
+    
+    template_data = random.choice(PHOTO_TEMPLATES)
+    try:
+        # Скачиваем шаблон
+        template_img = Image.open(io.BytesIO(requests.get(template_data["url"], timeout=15).content)).convert("RGBA")
+        tw, th = template_img.size
+        
+        # Скачиваем случайное фото
+        fid = random.choice(photos)
+        fi = bot.get_file(fid)
+        photo_data = bot.download_file(fi.file_path)
+        photo = Image.open(io.BytesIO(photo_data)).convert("RGBA")
+        
+        # Вставляем фото (пока в центр, потом подгоним)
+        pw, ph = tw // 2, th // 2
+        photo = photo.resize((pw, ph), Image.LANCZOS)
+        px = (tw - pw) // 2
+        py = (th - ph) // 2
+        template_img.paste(photo, (px, py))
+        
+        # Текст
+        draw = ImageDraw.Draw(template_img)
+        text = absurd_word_salad(chat_id, length=random.randint(3, 8))
+        tx, ty, ttw, tth = template_data["text_x"], template_data["text_y"], template_data["text_w"], template_data["text_h"]
+        
+        # Белый фон
+        draw.rectangle([tx, ty, tx + ttw, ty + tth], fill=(255, 255, 255, 230))
+        
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=20)
+        except:
+            font = ImageFont.load_default()
+        
+        lines = textwrap.wrap(text, width=15)
+        line_h = tth // max(len(lines), 1)
+        for i, line in enumerate(lines):
+            if i * line_h >= tth: break
+            bb = draw.textbbox((0, 0), line, font=font)
+            lw = bb[2] - bb[0]
+            lx = tx + (ttw - lw) // 2
+            ly = ty + i * line_h + 5
+            draw.text((lx, ly), line, font=font, fill=(0, 0, 0))
+        
+        out = io.BytesIO()
+        template_img.convert("RGB").save(out, format="JPEG")
+        out.seek(0)
+        return out
+    except: return None
+
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
     for p in ["impact.ttf", os.path.join(os.path.dirname(__file__),"impact.ttf"),
@@ -448,7 +509,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"), InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
     return txt, markup
 
@@ -557,7 +618,7 @@ def handle_buttons(call):
             txt, markup = nav[call.data]
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
-
+    
     if call.data == "menu_clear":
         txt, markup = clear_menu()
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
@@ -603,7 +664,7 @@ def handle_buttons(call):
                 _chat_stickers.clear()
                 _my_photos.clear()
             _clear_confirm[cid] = False
-            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")    
+            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "toggle_mat":
         s = get_settings(cid); s["no_mat"] = not s.get("no_mat", False); save_settings(cid)
         txt, markup = activity_menu(cid)
@@ -632,6 +693,10 @@ def handle_buttons(call):
         gif_url = get_random_gif()
         if gif_url: bot.send_document(cid, gif_url)
         else: bot.send_message(cid, "не нашёл гифку")
+    elif call.data == "photomeme":
+        out = make_photo_meme(cid)
+        if out: bot.send_photo(cid, out)
+        else: bot.send_message(cid, "нет фото или шаблонов")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
