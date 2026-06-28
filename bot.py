@@ -411,36 +411,66 @@ def make_photo_meme(chat_id):
             txt = absurd_word_salad(chat_id, length=random.randint(2, 5))
             tx, ty, tw, th = text_slot["x"], text_slot["y"], text_slot["w"], text_slot["h"]
             
+            # Шрифт по новому методу
+            base_dir = os.path.dirname(os.path.abspath(__file__))
             font_paths = [
-                os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf"),
-                "DejaVuSans.ttf",
+                os.path.join(base_dir, "DejaVuSans.ttf"),
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
             ]
-            font_size = int(th * 1.5)
+            
+            font_size = th
             font = None
-            while font_size > 8:
-                for fp in font_paths:
+            for fp in font_paths:
+                if os.path.isfile(fp):
                     try:
                         font = ImageFont.truetype(fp, font_size)
                         break
                     except: pass
-                if font: break
-                font_size -= 2
             
-            if font is None: font = ImageFont.load_default()
-            lines = textwrap.wrap(txt, width=20) or [txt]
-            line_h = draw.textbbox((0, 0), "Ay", font=font)[3] + 2
+            if font is None:
+                font = ImageFont.load_default()
+                font_size = 20
+            
+            # Перенос текста
+            lines = []
+            words = txt.split()
+            current = ""
+            for word in words:
+                test = (current + " " + word).strip()
+                try:
+                    if font.getlength(test) <= tw:
+                        current = test
+                    else:
+                        if current: lines.append(current)
+                        current = word
+                except:
+                    if font.getsize(test)[0] <= tw:
+                        current = test
+                    else:
+                        if current: lines.append(current)
+                        current = word
+            if current: lines.append(current)
+            if not lines: lines = [txt]
+            
+            # Рисуем текст
+            line_h = font_size + 4
             total_h = line_h * len(lines)
             y = ty + (th - total_h) // 2
             
             for line in lines:
-                bb = draw.textbbox((0, 0), line, font=font)
-                lw = bb[2] - bb[0]
-                x = tx + (tw - lw) // 2
-                for dx in [-2, -1, 0, 1, 2]:
-                    for dy in [-2, -1, 0, 1, 2]:
+                try:
+                    text_w = font.getlength(line)
+                except:
+                    text_w = font.getsize(line)[0]
+                x = tx + (tw - text_w) // 2
+                
+                # Обводка
+                for dx in range(-2, 3):
+                    for dy in range(-2, 3):
                         if dx != 0 or dy != 0:
-                            draw.text((x+dx, y+dy), line, font=font, fill=(0, 0, 0, 255))
+                            draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0, 255))
+                # Белый текст
                 draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
                 y += line_h
 
