@@ -284,8 +284,8 @@ def send_random_poll(bot_instance, chat_id):
 PHOTO_TEMPLATES = [
     {
         "url": "https://i.postimg.cc/XJ4yyLsX/IMG-4835.jpg",
-        "photo_x": 59, "photo_y": 243, "photo_w": 846, "photo_h": 965,
-        "text_x": 71, "text_y": 1588, "text_w": 506, "text_h": 91
+        "photo_x": 58, "photo_y": 243, "photo_w": 846, "photo_h": 963,
+        "text_x": 76, "text_y": 1593, "text_w": 495, "text_h": 81
     },
 ]
 
