@@ -75,6 +75,10 @@ IMGFLIP_TEMPLATES = [
     89370399, 110163934, 61579, 101470, 217743513,
     91538330, 4087833, 5496396, 1035805, 123999232,
     124822590, 148909805, 97984, 161865971, 9440985, 55353130,
+    8072285, 188390779, 155067746, 142009471, 180190441,
+    29617627, 27813981, 129242436, 114585149, 178591752,
+    135256802, 100777631, 102156234, 101288, 259237855,
+    50421420, 222403160, 438680, 3218037, 196652226,
 ]
 
 KTO_ANSWERS = [
@@ -97,66 +101,82 @@ KOGDA_ANSWERS = [
 # ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
 TEMPLATES_DIR = "templates"
 PHOTO_TEMPLATES = {
-    "IMG_4835.jpeg": [
-        {"x": 58, "y": 242, "w": 846, "h": 965},
-    ],
-    "IMG_4838.JPG": [
-        {"x": 601, "y": 3, "w": 595, "h": 595},
-        {"x": 601, "y": 601, "w": 595, "h": 595},
-    ],
-    "IMG_4841.JPG": [
-        {"x": 6, "y": 6, "w": 589, "h": 589},
-        {"x": 6, "y": 603, "w": 590, "h": 591},
-    ],
-    "IMG_4842.jpg": [
-        {"x": 0, "y": 0, "w": 620, "h": 836},
-    ],
-    "IMG_4843.jpg": [
-        {"x": 12, "y": 388, "w": 504, "h": 504},
-    ],
-    "IMG_4844.jpg": [
-        {"x": 13, "y": 542, "w": 1184, "h": 646},
-    ],
-    "IMG_4845.jpg": [
-        {"x": 0, "y": 0, "w": 1206, "h": 991},
-    ],
-    "IMG_4846.jpg": [
-        {"x": 0, "y": 193, "w": 1206, "h": 774},
-    ],
-    "IMG_4847.jpg": [
-        {"x": 0, "y": 264, "w": 1206, "h": 735},
-    ],
-    "IMG_4848.jpg": [
-        {"x": 0, "y": 175, "w": 1206, "h": 1019},
-    ],
-    "IMG_4849.jpg": [
-        {"x": 410, "y": 1097, "w": 419, "h": 452},
-    ],
-    "IMG_4850.jpg": [
-        {"x": 113, "y": 198, "w": 333, "h": 392},
-    ],
-    "IMG_4851.jpg": [
-        {"x": 683, "y": 587, "w": 500, "h": 500},
-    ],
-    "IMG_4852.jpg": [
-        {"x": 0, "y": 481, "w": 585, "h": 423},
-    ],
-    "IMG_4853.jpg": [
-        {"x": 612, "y": 666, "w": 572, "h": 381},
-    ],
-    "IMG_4856.jpg": [
-        {"x": 79, "y": 369, "w": 1000, "h": 687},
-    ],
-    "IMG_4857.jpg": [
-        {"x": 54, "y": 200, "w": 1109, "h": 1109},
-    ],
-    "IMG_4858.jpg": [
-        {"x": 430, "y": 450, "w": 441, "h": 294},
-    ],
-    "IMG_4860.JPG": [
-        {"x": 607, "y": 0, "w": 599, "h": 465},
-        {"x": 607, "y": 473, "w": 599, "h": 471},
-    ],
+    "IMG_4835.jpeg": {
+        "photos": [{"x": 58, "y": 242, "w": 846, "h": 965}],
+        "texts": [{"x": 67, "y": 1589, "w": 502, "h": 87}],
+    },
+    "IMG_4838.JPG": {
+        "photos": [{"x": 601, "y": 3, "w": 595, "h": 595}, {"x": 601, "y": 601, "w": 595, "h": 595}],
+        "texts": [],
+    },
+    "IMG_4841.JPG": {
+        "photos": [{"x": 6, "y": 6, "w": 589, "h": 589}, {"x": 6, "y": 603, "w": 590, "h": 591}],
+        "texts": [],
+    },
+    "IMG_4842.jpg": {
+        "photos": [{"x": 0, "y": 0, "w": 620, "h": 836}],
+        "texts": [],
+    },
+    "IMG_4843.jpg": {
+        "photos": [{"x": 12, "y": 388, "w": 504, "h": 504}],
+        "texts": [],
+    },
+    "IMG_4844.jpg": {
+        "photos": [{"x": 13, "y": 542, "w": 1184, "h": 646}],
+        "texts": [],
+    },
+    "IMG_4845.jpg": {
+        "photos": [{"x": 0, "y": 0, "w": 1206, "h": 991}],
+        "texts": [],
+    },
+    "IMG_4846.jpg": {
+        "photos": [{"x": 0, "y": 193, "w": 1206, "h": 774}],
+        "texts": [],
+    },
+    "IMG_4847.jpg": {
+        "photos": [{"x": 0, "y": 264, "w": 1206, "h": 735}],
+        "texts": [],
+    },
+    "IMG_4848.jpg": {
+        "photos": [{"x": 0, "y": 175, "w": 1206, "h": 1019}],
+        "texts": [],
+    },
+    "IMG_4849.jpg": {
+        "photos": [{"x": 410, "y": 1097, "w": 419, "h": 452}],
+        "texts": [],
+    },
+    "IMG_4850.jpg": {
+        "photos": [{"x": 113, "y": 198, "w": 333, "h": 392}],
+        "texts": [],
+    },
+    "IMG_4851.jpg": {
+        "photos": [{"x": 683, "y": 587, "w": 500, "h": 500}],
+        "texts": [],
+    },
+    "IMG_4852.jpg": {
+        "photos": [{"x": 0, "y": 481, "w": 585, "h": 423}],
+        "texts": [],
+    },
+    "IMG_4853.jpg": {
+        "photos": [{"x": 612, "y": 666, "w": 572, "h": 381}],
+        "texts": [{"x": 612, "y": 1080, "w": 572, "h": 50}],
+    },
+    "IMG_4856.jpg": {
+        "photos": [{"x": 79, "y": 369, "w": 1000, "h": 687}],
+        "texts": [],
+    },
+    "IMG_4857.jpg": {
+        "photos": [{"x": 54, "y": 200, "w": 1109, "h": 1109}],
+        "texts": [{"x": 95, "y": 84, "w": 1016, "h": 104}],
+    },
+    "IMG_4858.jpg": {
+        "photos": [{"x": 430, "y": 450, "w": 441, "h": 294}],
+        "texts": [],
+    },
+    "IMG_4860.JPG": {
+        "photos": [{"x": 607, "y": 0, "w": 599, "h": 465}, {"x": 607, "y": 473, "w": 599, "h": 471}],
+        "texts": [],
+    },
 }
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
@@ -168,6 +188,7 @@ _chat_stickers = []
 MAX_CHAT_STICKERS = 100
 _clear_confirm = {}
 _clear_category = {}
+_gif_mode = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -273,10 +294,14 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     return text.strip()
 
 # ─── GIPHY ─────────────────────────────────────────────────────────────────────
-def get_random_gif():
+def get_gif_by_query(query):
     try:
-        r = requests.get(f"https://api.giphy.com/v1/gifs/random?api_key={GIPHY_KEY}&tag=meme&rating=r", timeout=10).json()
-        if r.get("data",{}).get("images",{}).get("original",{}).get("url"): return r["data"]["images"]["original"]["url"]
+        url = f"https://api.giphy.com/v1/gifs/search?api_key={GIPHY_KEY}&q={query}&limit=10&rating=r"
+        r = requests.get(url, timeout=10).json()
+        results = r.get("data", [])
+        if results:
+            gif = random.choice(results)
+            return gif["images"]["original"]["url"]
     except: pass
     return None
 
@@ -354,19 +379,53 @@ def make_photo_meme(chat_id):
     if not available: return None
 
     template_name = random.choice(available)
-    slots = PHOTO_TEMPLATES[template_name]
+    template_data = PHOTO_TEMPLATES[template_name]
     template_path = os.path.join(TEMPLATES_DIR, template_name)
 
     try:
         template = Image.open(template_path).convert("RGBA")
+        draw = ImageDraw.Draw(template)
 
-        for slot in slots:
+        # Вставляем фото
+        for slot in template_data.get("photos", []):
             fid = random.choice(photos)
             fi = bot.get_file(fid)
             photo_bytes = bot.download_file(fi.file_path)
             photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
             photo = photo.resize((slot["w"], slot["h"]), Image.LANCZOS)
             template.paste(photo, (slot["x"], slot["y"]), photo)
+
+        # Вставляем текст
+        for text_slot in template_data.get("texts", []):
+            txt = absurd_word_salad(chat_id, length=random.randint(2, 5))
+            tx, ty, tw, th = text_slot["x"], text_slot["y"], text_slot["w"], text_slot["h"]
+            
+            # Белый фон
+            draw.rectangle([tx, ty, tx + tw, ty + th], fill=(255, 255, 255, 230))
+            
+            font_size = th
+            font = None
+            while font_size > 8:
+                try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+                except: font = ImageFont.load_default()
+                lines = textwrap.wrap(txt, width=20)
+                if not lines: break
+                test_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
+                if test_h <= th: break
+                font_size -= 2
+            
+            if font is None: font = ImageFont.load_default()
+            lines = textwrap.wrap(txt, width=20) or [txt]
+            line_h = draw.textbbox((0, 0), "Ay", font=font)[3] + 2
+            total_h = line_h * len(lines)
+            y = ty + (th - total_h) // 2
+            
+            for line in lines:
+                bb = draw.textbbox((0, 0), line, font=font)
+                lw = bb[2] - bb[0]
+                x = tx + (tw - lw) // 2
+                draw.text((x, y), line, font=font, fill=(0, 0, 0, 255))
+                y += line_h
 
         out = io.BytesIO()
         template.convert("RGB").save(out, format="JPEG", quality=90)
@@ -425,10 +484,11 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         return True
     except: return False
 
-# ─── Мемы ─────────────────────────────────────────────────────────────────────
+# ─── Мемы (до 6 полей) ───────────────────────────────────────────────────────
 def make_imgflip_meme(template_id, texts):
     params = {"template_id":template_id,"username":IMGFLIP_USER,"password":IMGFLIP_PASS}
-    for i,t in enumerate(texts): params[f"boxes[{i}][text]"] = t[:100]
+    for i, t in enumerate(texts[:6]):  # максимум 6 полей
+        params[f"boxes[{i}][text]"] = t[:100]
     try:
         r = requests.post("https://api.imgflip.com/caption_image", data=params, timeout=15).json()
         if r.get("success") and r.get("data",{}).get("url"): return r["data"]["url"]
@@ -439,8 +499,8 @@ def send_template_meme(bot_instance, chat_id, reply_to=None, texts=None):
     tid = random.choice(IMGFLIP_TEMPLATES)
     if not texts:
         words = _chat_words(chat_id)
-        texts = [random.choice(EMPTY_MEME_TEXTS) for _ in range(2)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(2)]
-    url = make_imgflip_meme(tid, texts[:2])
+        texts = [random.choice(EMPTY_MEME_TEXTS) for _ in range(2)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,6))]
+    url = make_imgflip_meme(tid, texts[:6])
     if url:
         try:
             img_data = requests.get(url, timeout=15).content
@@ -536,7 +596,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
-        markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
+        markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"), InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"))
     else:
         txt = """🎪 <b>Тут мои таланты</b>
@@ -544,7 +604,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"), InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
     return txt, markup
 
@@ -626,6 +686,8 @@ def handle_sticker(message):
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
+    for d in [_gif_mode]:
+        d[cid] = False
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
@@ -654,7 +716,10 @@ def handle_buttons(call):
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
     
-    if call.data == "menu_clear":
+    if call.data == "gif":
+        _gif_mode[cid] = True
+        bot.edit_message_text("🎬 <b>Напиши слово для поиска гифки</b>", cid, call.message.message_id, parse_mode="HTML")
+    elif call.data == "menu_clear":
         txt, markup = clear_menu()
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_all":
@@ -724,10 +789,6 @@ def handle_buttons(call):
         else: bot.send_message(cid, "не смог")
     elif call.data == "stick":
         if not send_sticker_photo(bot, cid): bot.send_message(cid, "нет фото")
-    elif call.data == "gif":
-        gif_url = get_random_gif()
-        if gif_url: bot.send_document(cid, gif_url)
-        else: bot.send_message(cid, "не нашёл гифку")
     elif call.data == "photomeme":
         out = make_photo_meme(cid)
         if out: bot.send_photo(cid, out)
@@ -742,6 +803,15 @@ def handle_message(message):
     if is_muted(cid): return
     
     text=message.text; name=message.from_user.first_name or "Аноним"; uid=message.from_user.id
+    
+    # Режим поиска гифки
+    if _gif_mode.get(cid):
+        _gif_mode[cid] = False
+        gif_url = get_gif_by_query(text)
+        if gif_url: bot.send_document(cid, gif_url)
+        else: bot.send_message(cid, "не нашёл гифку")
+        return
+    
     add_message(cid, text); add_user_message(cid, uid, name, text)
     
     no_mat = is_no_mat(cid)
@@ -776,7 +846,6 @@ def handle_message(message):
     dem_trigger = random.randint(tr[4], tr[5])
     mat_trigger = random.randint(tr[6], tr[7])
     stick_trigger = random.randint(tr[8], tr[9])
-    gif_trigger = random.randint(tr[10], tr[11])
     sticker_send_trigger = random.randint(tr[8], tr[9])
     poll_trigger = random.randint(tr[13], tr[14])
     
@@ -784,7 +853,6 @@ def handle_message(message):
     if c["mat"]>=mat_trigger: c["mat"]=0; save_counter(cid)
     if c["voice"]>=voice_trigger: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
     if c["meme"]>=meme_trigger: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
-    if c["gif"]>=gif_trigger: c["gif"]=0; save_counter(cid); threading.Thread(target=lambda: (lambda u: u and bot.send_document(cid, u))(get_random_gif()), daemon=True).start(); return
     if c["dem"]>=dem_trigger and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
     if c["stick"]>=stick_trigger and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
     if c["sticker_send"]>=sticker_send_trigger and _chat_stickers:
