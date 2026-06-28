@@ -97,7 +97,7 @@ KOGDA_ANSWERS = [
 # ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
 TEMPLATES_DIR = "templates"
 PHOTO_TEMPLATES = {
-    "39E0E8E7-BF22-4E1B-A801-4FD98F9993B1_1_201_a.jpeg": {
+    "IMG_4837.jpeg": {
         "photo_x": 358, "photo_y": 63, "photo_w": 324, "photo_h": 286,
     },
 }
