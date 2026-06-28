@@ -71,16 +71,16 @@ STICKERS = [
 ]
 
 IMGFLIP_TEMPLATES = {
-    181913649: 2, 87743020: 2, 93895088: 4, 252600902: 2, 131940431: 3,
-    89370399: 2, 110163934: 2, 61579: 1, 101470: 2, 217743513: 2,
-    91538330: 2, 4087833: 2, 5496396: 2, 1035805: 2, 123999232: 2,
-    124822590: 2, 148909805: 2, 97984: 2, 161865971: 3, 9440985: 2,
-    55353130: 2, 8072285: 2, 188390779: 2, 155067746: 2, 142009471: 2,
-    180190441: 2, 29617627: 2, 27813981: 2, 129242436: 2, 114585149: 2,
-    178591752: 2, 135256802: 2, 100777631: 2, 102156234: 2, 101288: 2,
+    181913649: 2, 87743020: 3, 93895088: 4, 252600902: 2, 131940431: 4,
+    89370399: 2, 110163934: 2, 61579: 2, 101470: 2, 217743513: 2,
+    91538330: 2, 4087833: 2, 5496396: 2, 1035805: 4, 123999232: 2,
+    124822590: 3, 148909805: 2, 97984: 2, 161865971: 2, 9440985: 2,
+    55353130: 2, 8072285: 5, 188390779: 2, 155067746: 3, 142009471: 3,
+    180190441: 3, 29617627: 2, 27813981: 2, 129242436: 2, 114585149: 4,
+    178591752: 2, 135256802: 3, 100777631: 3, 102156234: 2, 101288: 2,
     259237855: 2, 50421420: 2, 222403160: 2, 438680: 2, 3218037: 2,
-    196652226: 2, 216951317: 2, 3713828: 2, 175540452: 2, 119139145: 2,
-    195515965: 2, 134242370: 2, 99683372: 2, 92084495: 2, 84341851: 2,
+    196652226: 2, 175540452: 2, 119139145: 2, 195515965: 4, 134242370: 2,
+    99683372: 2, 92084495: 2, 84341851: 2,
 }
 
 KTO_ANSWERS = [
@@ -311,6 +311,13 @@ def get_gif_by_query(query):
     except: pass
     return None
 
+def get_random_gif():
+    try:
+        r = requests.get(f"https://api.giphy.com/v1/gifs/random?api_key={GIPHY_KEY}&tag=meme&rating=r", timeout=10).json()
+        if r.get("data",{}).get("images",{}).get("original",{}).get("url"): return r["data"]["images"]["original"]["url"]
+    except: pass
+    return None
+
 # ─── Голосовые ────────────────────────────────────────────────────────────────
 def generate_voice(text):
     try:
@@ -392,7 +399,6 @@ def make_photo_meme(chat_id):
         template = Image.open(template_path).convert("RGBA")
         draw = ImageDraw.Draw(template)
 
-        # Вставляем фото
         for slot in template_data.get("photos", []):
             fid = random.choice(photos)
             fi = bot.get_file(fid)
@@ -401,13 +407,16 @@ def make_photo_meme(chat_id):
             photo = photo.resize((slot["w"], slot["h"]), Image.LANCZOS)
             template.paste(photo, (slot["x"], slot["y"]), photo)
 
-        # Вставляем текст (без белого фона)
         for text_slot in template_data.get("texts", []):
             txt = absurd_word_salad(chat_id, length=random.randint(2, 5))
             tx, ty, tw, th = text_slot["x"], text_slot["y"], text_slot["w"], text_slot["h"]
             
-            font_paths = ["DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
-            font_size = th
+            font_paths = [
+                os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf"),
+                "DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            ]
+            font_size = int(th * 1.5)
             font = None
             while font_size > 8:
                 for fp in font_paths:
@@ -428,12 +437,10 @@ def make_photo_meme(chat_id):
                 bb = draw.textbbox((0, 0), line, font=font)
                 lw = bb[2] - bb[0]
                 x = tx + (tw - lw) // 2
-                # Чёрная обводка
                 for dx in [-2, -1, 0, 1, 2]:
                     for dy in [-2, -1, 0, 1, 2]:
                         if dx != 0 or dy != 0:
                             draw.text((x+dx, y+dy), line, font=font, fill=(0, 0, 0, 255))
-                # Белый текст
                 draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
                 y += line_h
 
@@ -494,7 +501,7 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         return True
     except: return False
 
-# ─── Мемы (по количеству полей шаблона) ──────────────────────────────────────
+# ─── Мемы ─────────────────────────────────────────────────────────────────────
 def make_imgflip_meme(template_id, texts, num_boxes=2):
     params = {"template_id":template_id,"username":IMGFLIP_USER,"password":IMGFLIP_PASS}
     for i, t in enumerate(texts[:num_boxes]):
@@ -861,6 +868,7 @@ def handle_message(message):
     dem_trigger = random.randint(tr[4], tr[5])
     mat_trigger = random.randint(tr[6], tr[7])
     stick_trigger = random.randint(tr[8], tr[9])
+    gif_trigger = random.randint(tr[10], tr[11])
     sticker_send_trigger = random.randint(tr[8], tr[9])
     poll_trigger = random.randint(tr[13], tr[14])
     
@@ -868,6 +876,7 @@ def handle_message(message):
     if c["mat"]>=mat_trigger: c["mat"]=0; save_counter(cid)
     if c["voice"]>=voice_trigger: c["voice"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_voice(bot,cid), daemon=True).start(); return
     if c["meme"]>=meme_trigger: c["meme"]=0; save_counter(cid); threading.Thread(target=lambda: send_template_meme(bot,cid), daemon=True).start(); return
+    if c["gif"]>=gif_trigger: c["gif"]=0; save_counter(cid); threading.Thread(target=lambda: (lambda u: u and bot.send_document(cid, u))(get_random_gif()), daemon=True).start(); return
     if c["dem"]>=dem_trigger and get_photos(cid): c["dem"]=0; save_counter(cid); threading.Thread(target=lambda: send_random_dem(bot,cid), daemon=True).start(); return
     if c["stick"]>=stick_trigger and get_photos(cid): c["stick"]=0; save_counter(cid); threading.Thread(target=lambda: send_sticker_photo(bot,cid), daemon=True).start(); return
     if c["sticker_send"]>=sticker_send_trigger and _chat_stickers:
