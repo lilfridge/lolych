@@ -739,13 +739,13 @@ def cmd_start(message):
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
-@bot.message_handler(commands=["развлечения", "fun"])
+@bot.message_handler(commands=["fun"])
 def cmd_fun(message):
     cid = message.chat.id
     txt, markup = fun_menu(1)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
-@bot.message_handler(commands=["параметры", "settings"])
+@bot.message_handler(commands=["settings"])
 def cmd_params(message):
     cid = message.chat.id
     txt, markup = params_menu(cid)
