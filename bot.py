@@ -6,7 +6,7 @@ import threading
 import json
 import os
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import io
 import textwrap
 import logging
@@ -93,6 +93,15 @@ KOGDA_ANSWERS = [
     "когда {user} перестанет тупить",
     "после того как {user} поумнеет",
 ]
+
+# ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
+TEMPLATES_DIR = "templates"
+PHOTO_TEMPLATES = {
+    "IMG_4835.jpg": {
+        "photo": (58, 243, 1148, 1460),
+        "text": (85, 1609, 473, 62),
+    },
+}
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
@@ -280,6 +289,76 @@ def send_random_poll(bot_instance, chat_id):
     try: bot_instance.send_poll(chat_id, question=question, options=options, is_anonymous=False)
     except: pass
 
+# ─── Фотомем ──────────────────────────────────────────────────────────────────
+def make_photo_meme(chat_id):
+    photos = get_photos(chat_id)
+    if not photos: return None
+    
+    # Выбираем случайный шаблон
+    available = [t for t in PHOTO_TEMPLATES if os.path.exists(os.path.join(TEMPLATES_DIR, t))]
+    if not available: return None
+    
+    template_name = random.choice(available)
+    coords = PHOTO_TEMPLATES[template_name]
+    template_path = os.path.join(TEMPLATES_DIR, template_name)
+    
+    try:
+        template = Image.open(template_path).convert("RGBA")
+        
+        # Фото из чата
+        fid = random.choice(photos)
+        fi = bot.get_file(fid)
+        photo_bytes = bot.download_file(fi.file_path)
+        photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
+        
+        # Координаты
+        px, py, pw, ph = coords["photo"]
+        tx, ty, tw, th = coords["text"]
+        
+        # Вставляем фото
+        photo = ImageOps.fit(photo, (pw, ph), method=Image.LANCZOS)
+        template.paste(photo, (px, py), photo)
+        
+        # Текст
+        draw = ImageDraw.Draw(template)
+        text = absurd_word_salad(chat_id, length=random.randint(3, 8))
+        
+        font_size = th
+        font = None
+        while font_size > 6:
+            try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+            except: font = ImageFont.load_default()
+            lines = textwrap.wrap(text, width=20)
+            if not lines: break
+            test_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
+            if test_h <= th: break
+            font_size -= 1
+        
+        if font is None: font = ImageFont.load_default()
+        lines = textwrap.wrap(text, width=20) or [text]
+        line_h = draw.textbbox((0, 0), "Ay", font=font)[3] + 2
+        total_h = line_h * len(lines)
+        y = ty + (th - total_h) // 2
+        
+        for line in lines:
+            bb = draw.textbbox((0, 0), line, font=font)
+            lw = bb[2] - bb[0]
+            x = tx + (tw - lw) // 2
+            for dx in [-2, -1, 0, 1, 2]:
+                for dy in [-2, -1, 0, 1, 2]:
+                    if dx != 0 or dy != 0:
+                        draw.text((x+dx, y+dy), line, font=font, fill=(0, 0, 0, 255))
+            draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
+            y += line_h
+        
+        out = io.BytesIO()
+        template.convert("RGB").save(out, format="JPEG", quality=90)
+        out.seek(0)
+        return out
+    except Exception as e:
+        log.error(f"Фотомем ошибка: {e}")
+        return None
+
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
     for p in ["impact.ttf", os.path.join(os.path.dirname(__file__),"impact.ttf"),
@@ -448,7 +527,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"), InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
     return txt, markup
 
@@ -632,6 +711,10 @@ def handle_buttons(call):
         gif_url = get_random_gif()
         if gif_url: bot.send_document(cid, gif_url)
         else: bot.send_message(cid, "не нашёл гифку")
+    elif call.data == "photomeme":
+        out = make_photo_meme(cid)
+        if out: bot.send_photo(cid, out)
+        else: bot.send_message(cid, "нет фото или шаблонов")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
