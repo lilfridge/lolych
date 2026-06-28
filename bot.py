@@ -421,6 +421,7 @@ def main_menu(cid):
     
     txt = f"""🃏 <b>Лолыч</b>
 
+📋 <b>Главное меню</b>
 🔧 ID: <code>{cid}</code>
 ⭐ Активность: {lv_name}
 
@@ -434,13 +435,17 @@ def main_menu(cid):
 
 def fun_menu(page=1):
     if page == 1:
-        txt = """🎪 <b>Не обращайте внимания, я просто рофлю 🥶</b>"""
+        txt = """🎪 <b>Тут мои таланты</b>
+
+Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
         markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
-        markup.add(InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"), InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+        markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"), InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"))
     else:
-        txt = """🎪 <b>Не обращайте внимания, я просто рофлю 🥶</b>"""
+        txt = """🎪 <b>Тут мои таланты</b>
+
+Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
         markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
@@ -449,7 +454,9 @@ def fun_menu(page=1):
 
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
-    txt = """⚙️ <b>Крути как хочешь, я не против 🦾</b>"""
+    txt = """⚙️ <b>Параметры</b>
+
+Здесь командуешь ты 👑"""
     
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -482,13 +489,18 @@ def activity_menu(cid):
     return txt, markup
 
 def clear_menu():
+    txt = "🗑 <b>Что очистить?</b>"
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🗑 Всё", callback_data="clear_all"))
-    markup.add(InlineKeyboardButton("💬 Сообщения", callback_data="clear_msgs"))
-    markup.add(InlineKeyboardButton("🖼 Фото", callback_data="clear_photos"))
-    markup.add(InlineKeyboardButton("🎨 Стикеры", callback_data="clear_stickers"))
+    markup.add(
+        InlineKeyboardButton("💬 Сообщения", callback_data="clear_msgs"),
+        InlineKeyboardButton("🖼 Фото", callback_data="clear_photos")
+    )
+    markup.add(
+        InlineKeyboardButton("🎨 Стикеры", callback_data="clear_stickers"),
+        InlineKeyboardButton("🗑 Всё", callback_data="clear_all")
+    )
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
-    return markup
+    return txt, markup
 
 # ─── Приветствие ─────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["new_chat_members"])
@@ -547,7 +559,8 @@ def handle_buttons(call):
         return
     
     if call.data == "menu_clear":
-        bot.edit_message_text("🗑 <b>Что очистить?</b>", cid, call.message.message_id, reply_markup=clear_menu(), parse_mode="HTML")
+        txt, markup = clear_menu()
+        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_all":
         _clear_confirm[cid] = True
         _clear_category[cid] = "all"
