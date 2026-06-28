@@ -97,9 +97,66 @@ KOGDA_ANSWERS = [
 # ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
 TEMPLATES_DIR = "templates"
 PHOTO_TEMPLATES = {
-    "IMG_4837.jpeg": {
-        "photo_x": 358, "photo_y": 63, "photo_w": 324, "photo_h": 286,
-    },
+    "IMG_4835.jpeg": [
+        {"x": 58, "y": 242, "w": 846, "h": 965},
+    ],
+    "IMG_4838.JPG": [
+        {"x": 601, "y": 3, "w": 595, "h": 595},
+        {"x": 601, "y": 601, "w": 595, "h": 595},
+    ],
+    "IMG_4841.JPG": [
+        {"x": 6, "y": 6, "w": 589, "h": 589},
+        {"x": 6, "y": 603, "w": 590, "h": 591},
+    ],
+    "IMG_4842.jpg": [
+        {"x": 0, "y": 0, "w": 620, "h": 836},
+    ],
+    "IMG_4843.jpg": [
+        {"x": 12, "y": 388, "w": 504, "h": 504},
+    ],
+    "IMG_4844.jpg": [
+        {"x": 13, "y": 542, "w": 1184, "h": 646},
+    ],
+    "IMG_4845.jpg": [
+        {"x": 0, "y": 0, "w": 1206, "h": 991},
+    ],
+    "IMG_4846.jpg": [
+        {"x": 0, "y": 193, "w": 1206, "h": 774},
+    ],
+    "IMG_4847.jpg": [
+        {"x": 0, "y": 264, "w": 1206, "h": 735},
+    ],
+    "IMG_4848.jpg": [
+        {"x": 0, "y": 175, "w": 1206, "h": 1019},
+    ],
+    "IMG_4849.jpg": [
+        {"x": 410, "y": 1097, "w": 419, "h": 452},
+    ],
+    "IMG_4850.jpg": [
+        {"x": 113, "y": 198, "w": 333, "h": 392},
+    ],
+    "IMG_4851.jpg": [
+        {"x": 683, "y": 587, "w": 500, "h": 500},
+    ],
+    "IMG_4852.jpg": [
+        {"x": 0, "y": 481, "w": 585, "h": 423},
+    ],
+    "IMG_4853.jpg": [
+        {"x": 612, "y": 666, "w": 572, "h": 381},
+    ],
+    "IMG_4856.jpg": [
+        {"x": 79, "y": 369, "w": 1000, "h": 687},
+    ],
+    "IMG_4857.jpg": [
+        {"x": 54, "y": 200, "w": 1109, "h": 1109},
+    ],
+    "IMG_4858.jpg": [
+        {"x": 430, "y": 450, "w": 441, "h": 294},
+    ],
+    "IMG_4860.JPG": [
+        {"x": 607, "y": 0, "w": 599, "h": 465},
+        {"x": 607, "y": 473, "w": 599, "h": 471},
+    ],
 }
 
 # ─── Файлы ────────────────────────────────────────────────────────────────────
@@ -297,32 +354,20 @@ def make_photo_meme(chat_id):
     if not available: return None
 
     template_name = random.choice(available)
-    coords = PHOTO_TEMPLATES[template_name]
+    slots = PHOTO_TEMPLATES[template_name]
     template_path = os.path.join(TEMPLATES_DIR, template_name)
 
     try:
-        # Открываем шаблон
         template = Image.open(template_path).convert("RGBA")
 
-        # Скачиваем случайное фото из чата
-        fid = random.choice(photos)
-        fi = bot.get_file(fid)
-        photo_bytes = bot.download_file(fi.file_path)
-        photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
+        for slot in slots:
+            fid = random.choice(photos)
+            fi = bot.get_file(fid)
+            photo_bytes = bot.download_file(fi.file_path)
+            photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
+            photo = photo.resize((slot["w"], slot["h"]), Image.LANCZOS)
+            template.paste(photo, (slot["x"], slot["y"]), photo)
 
-        # Координаты
-        px = coords["photo_x"]
-        py = coords["photo_y"]
-        pw = coords["photo_w"]
-        ph = coords["photo_h"]
-
-        # Сжимаем фото под размер области
-        photo = photo.resize((pw, ph), Image.LANCZOS)
-
-        # Вставляем фото в шаблон
-        template.paste(photo, (px, py), photo)
-
-        # Сохраняем результат
         out = io.BytesIO()
         template.convert("RGB").save(out, format="JPEG", quality=90)
         out.seek(0)
