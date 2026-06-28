@@ -294,7 +294,6 @@ def make_photo_meme(chat_id):
     photos = get_photos(chat_id)
     if not photos: return None
     
-    # Выбираем случайный шаблон
     available = [t for t in PHOTO_TEMPLATES if os.path.exists(os.path.join(TEMPLATES_DIR, t))]
     if not available: return None
     
@@ -305,29 +304,38 @@ def make_photo_meme(chat_id):
     try:
         template = Image.open(template_path).convert("RGBA")
         
-        # Фото из чата
         fid = random.choice(photos)
         fi = bot.get_file(fid)
         photo_bytes = bot.download_file(fi.file_path)
         photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
         
-        # Координаты
         px, py, pw, ph = coords["photo"]
         tx, ty, tw, th = coords["text"]
         
-        # Вставляем фото
         photo = ImageOps.fit(photo, (pw, ph), method=Image.LANCZOS)
         template.paste(photo, (px, py), photo)
         
-        # Текст
         draw = ImageDraw.Draw(template)
         text = absurd_word_salad(chat_id, length=random.randint(3, 8))
         
-        font_size = th
+        # Пробуем разные шрифты
         font = None
+        font_size = th
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        ]
+        
         while font_size > 6:
-            try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-            except: font = ImageFont.load_default()
+            for fp in font_paths:
+                try:
+                    font = ImageFont.truetype(fp, font_size)
+                    break
+                except:
+                    continue
+            if font is None:
+                font = ImageFont.load_default()
             lines = textwrap.wrap(text, width=20)
             if not lines: break
             test_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
