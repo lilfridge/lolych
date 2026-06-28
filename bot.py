@@ -284,8 +284,8 @@ def send_random_poll(bot_instance, chat_id):
 PHOTO_TEMPLATES = [
     {
         "url": "https://i.postimg.cc/XJ4yyLsX/IMG-4835.jpg",
-        "photo_x": 58, "photo_y": 243, "photo_w": 846, "photo_h": 963,
-        "text_x": 76, "text_y": 1593, "text_w": 495, "text_h": 81
+        "photo_x": 30, "photo_y": 50, "photo_w": 500, "photo_h": 350,
+        "text_x": 30, "text_y": 420, "text_w": 500, "text_h": 60
     },
 ]
 
@@ -296,65 +296,57 @@ def make_photo_meme(chat_id):
     template_data = random.choice(PHOTO_TEMPLATES)
     try:
         # Скачиваем шаблон
-        template_img = Image.open(io.BytesIO(requests.get(template_data["url"], timeout=15).content)).convert("RGBA")
+        resp = requests.get(template_data["url"], timeout=15)
+        resp.raise_for_status()
+        template = Image.open(io.BytesIO(resp.content)).convert("RGBA")
         
-        # Скачиваем фото из чата
+        # Фото из чата
         fid = random.choice(photos)
         fi = bot.get_file(fid)
-        photo_data = bot.download_file(fi.file_path)
-        photo = Image.open(io.BytesIO(photo_data)).convert("RGBA")
+        chat_photo_bytes = bot.download_file(fi.file_path)
+        chat_photo = Image.open(io.BytesIO(chat_photo_bytes)).convert("RGBA")
         
-        # Вставляем фото по координатам
+        # Координаты из шаблона
         px, py, pw, ph = template_data["photo_x"], template_data["photo_y"], template_data["photo_w"], template_data["photo_h"]
-        photo = photo.resize((pw, ph), Image.LANCZOS)
-        template_img.paste(photo, (px, py))
-        
-        # Текст
-        draw = ImageDraw.Draw(template_img)
-        text = absurd_word_salad(chat_id, length=random.randint(3, 8))
         tx, ty, tw, th = template_data["text_x"], template_data["text_y"], template_data["text_w"], template_data["text_h"]
         
-        # Подбираем шрифт
+        # Вписываем фото в область
+        chat_photo = ImageOps.fit(chat_photo, (pw, ph), method=Image.LANCZOS)
+        template.paste(chat_photo, (px, py), chat_photo)
+        
+        # Текст
+        draw = ImageDraw.Draw(template)
+        text = absurd_word_salad(chat_id, length=random.randint(3, 8))
+        
         font_size = th
         font = None
-        while font_size >= 8:
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-            except:
-                font = ImageFont.load_default()
+        while font_size > 6:
+            try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+            except: font = ImageFont.load_default()
             lines = textwrap.wrap(text, width=20)
-            total_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
-            if total_h <= th:
-                break
-            font_size -= 2
+            test_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
+            if test_h <= th: break
+            font_size -= 1
         
-        if font is None:
-            font = ImageFont.load_default()
-        
-        # Рисуем строки с обводкой
+        if font is None: font = ImageFont.load_default()
         lines = textwrap.wrap(text, width=20)
-        line_h = draw.textbbox((0, 0), "Ay", font=font)[3]
-        total_h = len(lines) * line_h
+        line_h = draw.textbbox((0, 0), "Ay", font=font)[3] + 2
+        total_h = line_h * len(lines)
         y = ty + (th - total_h) // 2
         
         for line in lines:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            lw = bbox[2] - bbox[0]
+            bb = draw.textbbox((0, 0), line, font=font)
+            lw = bb[2] - bb[0]
             x = tx + (tw - lw) // 2
-            
-            # Обводка
-            outline = max(2, font_size // 15)
-            for dx in range(-outline, outline+1):
-                for dy in range(-outline, outline+1):
+            for dx in [-2, -1, 0, 1, 2]:
+                for dy in [-2, -1, 0, 1, 2]:
                     if dx != 0 or dy != 0:
-                        draw.text((x+dx, y+dy), line, font=font, fill="black")
-            
-            # Белый текст
-            draw.text((x, y), line, font=font, fill="white")
+                        draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0, 255))
+            draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
             y += line_h
         
         out = io.BytesIO()
-        template_img.convert("RGB").save(out, format="JPEG")
+        template.convert("RGB").save(out, format="JPEG", quality=90)
         out.seek(0)
         return out
     except: return None
