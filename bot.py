@@ -283,9 +283,9 @@ def send_random_poll(bot_instance, chat_id):
 # ─── Фотомем ──────────────────────────────────────────────────────────────────
 PHOTO_TEMPLATES = [
     {
-        "url": "https://i.postimg.cc/qMz4QKYj/IMG-4826-2.png",
-        "photo_x": 0, "photo_y": 0, "photo_w": 0, "photo_h": 0,  # заглушка, подгоним
-        "text_x": 30, "text_y": 751, "text_w": 238, "text_h": 45
+        "url": "https://i.postimg.cc/XJ4yyLsX/IMG-4835.jpg",
+        "photo_x": 59, "photo_y": 243, "photo_w": 846, "photo_h": 965,
+        "text_x": 71, "text_y": 1588, "text_w": 506, "text_h": 91
     },
 ]
 
@@ -295,21 +295,18 @@ def make_photo_meme(chat_id):
     
     template_data = random.choice(PHOTO_TEMPLATES)
     try:
-        # Скачиваем шаблон
         template_img = Image.open(io.BytesIO(requests.get(template_data["url"], timeout=15).content)).convert("RGBA")
-        tw, th = template_img.size
         
-        # Скачиваем случайное фото
+        # Вставляем фото по координатам
         fid = random.choice(photos)
         fi = bot.get_file(fid)
         photo_data = bot.download_file(fi.file_path)
         photo = Image.open(io.BytesIO(photo_data)).convert("RGBA")
-        
-        # Вставляем фото (пока в центр, потом подгоним)
-        pw, ph = tw // 2, th // 2
+        pw = template_data["photo_w"]
+        ph = template_data["photo_h"]
         photo = photo.resize((pw, ph), Image.LANCZOS)
-        px = (tw - pw) // 2
-        py = (th - ph) // 2
+        px = template_data["photo_x"]
+        py = template_data["photo_y"]
         template_img.paste(photo, (px, py))
         
         # Текст
