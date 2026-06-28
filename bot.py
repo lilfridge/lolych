@@ -94,6 +94,14 @@ KOGDA_ANSWERS = [
     "после того как {user} поумнеет",
 ]
 
+# ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
+TEMPLATES_DIR = "templates"
+PHOTO_TEMPLATES = {
+    "39E0E8E7-BF22-4E1B-A801-4FD98F9993B1_1_201_a.jpeg": {
+        "photo_x": 358, "photo_y": 63, "photo_w": 324, "photo_h": 286,
+    },
+}
+
 # ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
@@ -280,6 +288,49 @@ def send_random_poll(bot_instance, chat_id):
     try: bot_instance.send_poll(chat_id, question=question, options=options, is_anonymous=False)
     except: pass
 
+# ─── Фотомем ──────────────────────────────────────────────────────────────────
+def make_photo_meme(chat_id):
+    photos = get_photos(chat_id)
+    if not photos: return None
+
+    available = [t for t in PHOTO_TEMPLATES if os.path.exists(os.path.join(TEMPLATES_DIR, t))]
+    if not available: return None
+
+    template_name = random.choice(available)
+    coords = PHOTO_TEMPLATES[template_name]
+    template_path = os.path.join(TEMPLATES_DIR, template_name)
+
+    try:
+        # Открываем шаблон
+        template = Image.open(template_path).convert("RGBA")
+
+        # Скачиваем случайное фото из чата
+        fid = random.choice(photos)
+        fi = bot.get_file(fid)
+        photo_bytes = bot.download_file(fi.file_path)
+        photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
+
+        # Координаты
+        px = coords["photo_x"]
+        py = coords["photo_y"]
+        pw = coords["photo_w"]
+        ph = coords["photo_h"]
+
+        # Сжимаем фото под размер области
+        photo = photo.resize((pw, ph), Image.LANCZOS)
+
+        # Вставляем фото в шаблон
+        template.paste(photo, (px, py), photo)
+
+        # Сохраняем результат
+        out = io.BytesIO()
+        template.convert("RGB").save(out, format="JPEG", quality=90)
+        out.seek(0)
+        return out
+    except Exception as e:
+        log.error(f"Фотомем ошибка: {e}")
+        return None
+
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
     for p in ["impact.ttf", os.path.join(os.path.dirname(__file__),"impact.ttf"),
@@ -448,7 +499,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"), InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
     return txt, markup
 
@@ -632,6 +683,10 @@ def handle_buttons(call):
         gif_url = get_random_gif()
         if gif_url: bot.send_document(cid, gif_url)
         else: bot.send_message(cid, "не нашёл гифку")
+    elif call.data == "photomeme":
+        out = make_photo_meme(cid)
+        if out: bot.send_photo(cid, out)
+        else: bot.send_message(cid, "нет фото или шаблонов")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
