@@ -70,16 +70,18 @@ STICKERS = [
     "https://i.postimg.cc/fWV8GP8t/IMG-4815.png",
 ]
 
-IMGFLIP_TEMPLATES = [
-    181913649, 87743020, 93895088, 252600902, 131940431,
-    89370399, 110163934, 61579, 101470, 217743513,
-    91538330, 4087833, 5496396, 1035805, 123999232,
-    124822590, 148909805, 97984, 161865971, 9440985, 55353130,
-    8072285, 188390779, 155067746, 142009471, 180190441,
-    29617627, 27813981, 129242436, 114585149, 178591752,
-    135256802, 100777631, 102156234, 101288, 259237855,
-    50421420, 222403160, 438680, 3218037, 196652226,
-]
+IMGFLIP_TEMPLATES = {
+    181913649: 2, 87743020: 2, 93895088: 4, 252600902: 2, 131940431: 3,
+    89370399: 2, 110163934: 2, 61579: 1, 101470: 2, 217743513: 2,
+    91538330: 2, 4087833: 2, 5496396: 2, 1035805: 2, 123999232: 2,
+    124822590: 2, 148909805: 2, 97984: 2, 161865971: 3, 9440985: 2,
+    55353130: 2, 8072285: 2, 188390779: 2, 155067746: 2, 142009471: 2,
+    180190441: 2, 29617627: 2, 27813981: 2, 129242436: 2, 114585149: 2,
+    178591752: 2, 135256802: 2, 100777631: 2, 102156234: 2, 101288: 2,
+    259237855: 2, 50421420: 2, 222403160: 2, 438680: 2, 3218037: 2,
+    196652226: 2, 216951317: 2, 3713828: 2, 175540452: 2, 119139145: 2,
+    195515965: 2, 134242370: 2, 99683372: 2, 92084495: 2, 84341851: 2,
+}
 
 KTO_ANSWERS = [
     "это {user}, без сомнений", "{user}, больше некому",
@@ -104,6 +106,10 @@ PHOTO_TEMPLATES = {
     "IMG_4835.jpeg": {
         "photos": [{"x": 58, "y": 242, "w": 846, "h": 965}],
         "texts": [{"x": 67, "y": 1589, "w": 502, "h": 87}],
+    },
+    "IMG_4837.jpeg": {
+        "photos": [{"x": 424, "y": 552, "w": 412, "h": 365}],
+        "texts": [],
     },
     "IMG_4838.JPG": {
         "photos": [{"x": 601, "y": 3, "w": 595, "h": 595}, {"x": 601, "y": 601, "w": 595, "h": 595}],
@@ -395,23 +401,21 @@ def make_photo_meme(chat_id):
             photo = photo.resize((slot["w"], slot["h"]), Image.LANCZOS)
             template.paste(photo, (slot["x"], slot["y"]), photo)
 
-        # Вставляем текст
+        # Вставляем текст (без белого фона)
         for text_slot in template_data.get("texts", []):
             txt = absurd_word_salad(chat_id, length=random.randint(2, 5))
             tx, ty, tw, th = text_slot["x"], text_slot["y"], text_slot["w"], text_slot["h"]
             
-            # Белый фон
-            draw.rectangle([tx, ty, tx + tw, ty + th], fill=(255, 255, 255, 230))
-            
+            font_paths = ["DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
             font_size = th
             font = None
             while font_size > 8:
-                try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-                except: font = ImageFont.load_default()
-                lines = textwrap.wrap(txt, width=20)
-                if not lines: break
-                test_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
-                if test_h <= th: break
+                for fp in font_paths:
+                    try:
+                        font = ImageFont.truetype(fp, font_size)
+                        break
+                    except: pass
+                if font: break
                 font_size -= 2
             
             if font is None: font = ImageFont.load_default()
@@ -424,7 +428,13 @@ def make_photo_meme(chat_id):
                 bb = draw.textbbox((0, 0), line, font=font)
                 lw = bb[2] - bb[0]
                 x = tx + (tw - lw) // 2
-                draw.text((x, y), line, font=font, fill=(0, 0, 0, 255))
+                # Чёрная обводка
+                for dx in [-2, -1, 0, 1, 2]:
+                    for dy in [-2, -1, 0, 1, 2]:
+                        if dx != 0 or dy != 0:
+                            draw.text((x+dx, y+dy), line, font=font, fill=(0, 0, 0, 255))
+                # Белый текст
+                draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
                 y += line_h
 
         out = io.BytesIO()
@@ -484,10 +494,10 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         return True
     except: return False
 
-# ─── Мемы (до 6 полей) ───────────────────────────────────────────────────────
-def make_imgflip_meme(template_id, texts):
+# ─── Мемы (по количеству полей шаблона) ──────────────────────────────────────
+def make_imgflip_meme(template_id, texts, num_boxes=2):
     params = {"template_id":template_id,"username":IMGFLIP_USER,"password":IMGFLIP_PASS}
-    for i, t in enumerate(texts[:6]):  # максимум 6 полей
+    for i, t in enumerate(texts[:num_boxes]):
         params[f"boxes[{i}][text]"] = t[:100]
     try:
         r = requests.post("https://api.imgflip.com/caption_image", data=params, timeout=15).json()
@@ -496,11 +506,12 @@ def make_imgflip_meme(template_id, texts):
     return None
 
 def send_template_meme(bot_instance, chat_id, reply_to=None, texts=None):
-    tid = random.choice(IMGFLIP_TEMPLATES)
+    tid = random.choice(list(IMGFLIP_TEMPLATES.keys()))
+    num_boxes = IMGFLIP_TEMPLATES[tid]
     if not texts:
         words = _chat_words(chat_id)
-        texts = [random.choice(EMPTY_MEME_TEXTS) for _ in range(2)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(random.randint(2,6))]
-    url = make_imgflip_meme(tid, texts[:6])
+        texts = [random.choice(EMPTY_MEME_TEXTS) for _ in range(num_boxes)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(num_boxes)]
+    url = make_imgflip_meme(tid, texts[:num_boxes], num_boxes)
     if url:
         try:
             img_data = requests.get(url, timeout=15).content
@@ -596,7 +607,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
-        markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
+        markup.add(InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"), InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"), InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"))
     else:
         txt = """🎪 <b>Тут мои таланты</b>
@@ -723,20 +734,17 @@ def handle_buttons(call):
         txt, markup = clear_menu()
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_all":
-        _clear_confirm[cid] = True
-        _clear_category[cid] = "all"
+        _clear_confirm[cid] = True; _clear_category[cid] = "all"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
         bot.edit_message_text("⚠️ <b>Удалить ВСЁ?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_msgs":
-        _clear_confirm[cid] = True
-        _clear_category[cid] = "messages"   
+        _clear_confirm[cid] = True; _clear_category[cid] = "messages"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
         bot.edit_message_text("⚠️ <b>Удалить сообщения?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_photos":
-        _clear_confirm[cid] = True
-        _clear_category[cid] = "photos"
+        _clear_confirm[cid] = True; _clear_category[cid] = "photos"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
         bot.edit_message_text("⚠️ <b>Удалить фото?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
@@ -779,17 +787,24 @@ def handle_buttons(call):
         txt, markup = activity_menu(cid)
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "meme":
+        bot.edit_message_text("🎨 Рисую мем...", cid, call.message.message_id)
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
+        bot.edit_message_text("🖼 Делаю демотиватор...", cid, call.message.message_id)
         if not send_random_dem(bot, cid): bot.send_message(cid, "нет фото")
-    elif call.data == "mix": bot.send_message(cid, mix_messages(cid))
+    elif call.data == "mix":
+        bot.edit_message_text("💬 Миксую...", cid, call.message.message_id)
+        bot.send_message(cid, mix_messages(cid))
     elif call.data == "voice":
+        bot.edit_message_text("🎙 Озвучиваю...", cid, call.message.message_id)
         v = generate_voice(absurd_word_salad(cid))
         if v: bot.send_voice(cid, v)
         else: bot.send_message(cid, "не смог")
     elif call.data == "stick":
+        bot.edit_message_text("🎭 Клею стикер...", cid, call.message.message_id)
         if not send_sticker_photo(bot, cid): bot.send_message(cid, "нет фото")
     elif call.data == "photomeme":
+        bot.edit_message_text("📸 Создаю фотомем...", cid, call.message.message_id)
         out = make_photo_meme(cid)
         if out: bot.send_photo(cid, out)
         else: bot.send_message(cid, "нет фото или шаблонов")
