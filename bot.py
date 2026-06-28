@@ -1,12 +1,20 @@
+import sys
 import os as _os
+
+print(f"[DEBUG] Python: {sys.executable}", flush=True)
+print(f"[DEBUG] CWD: {_os.getcwd()}", flush=True)
+print(f"[DEBUG] __file__: {__file__}", flush=True)
+
 _base = _os.path.dirname(_os.path.abspath(__file__))
-print(f"[DEBUG] base_dir: {_base}")
-print(f"[DEBUG] files: {_os.listdir(_base)[:10]}")
+print(f"[DEBUG] base_dir: {_base}", flush=True)
+try:
+    print(f"[DEBUG] files: {_os.listdir(_base)[:15]}", flush=True)
+except: pass
 
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import markovify
-import random
+import random   
 import threading
 import json
 import os
