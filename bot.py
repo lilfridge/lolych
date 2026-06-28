@@ -280,77 +280,6 @@ def send_random_poll(bot_instance, chat_id):
     try: bot_instance.send_poll(chat_id, question=question, options=options, is_anonymous=False)
     except: pass
 
-# ─── Фотомем ──────────────────────────────────────────────────────────────────
-PHOTO_TEMPLATES = [
-    {
-        "url": "https://i.postimg.cc/XJ4yyLsX/IMG-4835.jpg",
-        "photo_x": 30, "photo_y": 50, "photo_w": 500, "photo_h": 350,
-        "text_x": 30, "text_y": 420, "text_w": 500, "text_h": 60
-    },
-]
-
-def make_photo_meme(chat_id):
-    photos = get_photos(chat_id)
-    if not photos: return None
-    
-    template_data = random.choice(PHOTO_TEMPLATES)
-    try:
-        # Скачиваем шаблон
-        resp = requests.get(template_data["url"], timeout=15)
-        resp.raise_for_status()
-        template = Image.open(io.BytesIO(resp.content)).convert("RGBA")
-        
-        # Фото из чата
-        fid = random.choice(photos)
-        fi = bot.get_file(fid)
-        chat_photo_bytes = bot.download_file(fi.file_path)
-        chat_photo = Image.open(io.BytesIO(chat_photo_bytes)).convert("RGBA")
-        
-        # Координаты из шаблона
-        px, py, pw, ph = template_data["photo_x"], template_data["photo_y"], template_data["photo_w"], template_data["photo_h"]
-        tx, ty, tw, th = template_data["text_x"], template_data["text_y"], template_data["text_w"], template_data["text_h"]
-        
-        # Вписываем фото в область
-        chat_photo = ImageOps.fit(chat_photo, (pw, ph), method=Image.LANCZOS)
-        template.paste(chat_photo, (px, py), chat_photo)
-        
-        # Текст
-        draw = ImageDraw.Draw(template)
-        text = absurd_word_salad(chat_id, length=random.randint(3, 8))
-        
-        font_size = th
-        font = None
-        while font_size > 6:
-            try: font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-            except: font = ImageFont.load_default()
-            lines = textwrap.wrap(text, width=20)
-            test_h = sum(draw.textbbox((0, 0), l, font=font)[3] for l in lines)
-            if test_h <= th: break
-            font_size -= 1
-        
-        if font is None: font = ImageFont.load_default()
-        lines = textwrap.wrap(text, width=20)
-        line_h = draw.textbbox((0, 0), "Ay", font=font)[3] + 2
-        total_h = line_h * len(lines)
-        y = ty + (th - total_h) // 2
-        
-        for line in lines:
-            bb = draw.textbbox((0, 0), line, font=font)
-            lw = bb[2] - bb[0]
-            x = tx + (tw - lw) // 2
-            for dx in [-2, -1, 0, 1, 2]:
-                for dy in [-2, -1, 0, 1, 2]:
-                    if dx != 0 or dy != 0:
-                        draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0, 255))
-            draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
-            y += line_h
-        
-        out = io.BytesIO()
-        template.convert("RGB").save(out, format="JPEG", quality=90)
-        out.seek(0)
-        return out
-    except: return None
-
 # ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
     for p in ["impact.ttf", os.path.join(os.path.dirname(__file__),"impact.ttf"),
@@ -519,7 +448,7 @@ def fun_menu(page=1):
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
-        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"), InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"), InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
     return txt, markup
 
@@ -703,10 +632,6 @@ def handle_buttons(call):
         gif_url = get_random_gif()
         if gif_url: bot.send_document(cid, gif_url)
         else: bot.send_message(cid, "не нашёл гифку")
-    elif call.data == "photomeme":
-        out = make_photo_meme(cid)
-        if out: bot.send_photo(cid, out)
-        else: bot.send_message(cid, "нет фото или шаблонов")
 
 # ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
