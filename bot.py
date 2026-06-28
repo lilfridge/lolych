@@ -45,6 +45,7 @@ EMOJI = ["💀","🗿","😭","🤡","👀","🔥","😐","💅","🤨","😤","
          "🤯","💩","🙈","🤪","🤮","😬","🥴","👻","🫠","🫃","🧌","🫵","☠️","👺","💢","🔞","🤬"]
 
 EMPTY_PHRASES = ["жто не не", "67", "WTF", "🥶", "🗿", "💀", "🤡", "а где слова", "пустота...", "🫠", "ой всё"]
+EMPTY_MEME_TEXTS = ["nah", "nope", "lol", "omg", "wtf", "67", "bruh", "WW", "yo"]
 
 STICKERS = [
     "https://i.postimg.cc/pXzFLvS7/Pngtree-black-gradient-3d-number-67-5994973.png",
@@ -101,6 +102,7 @@ _my_photos = set()
 _chat_stickers = []
 MAX_CHAT_STICKERS = 100
 _clear_confirm = {}
+_clear_category = {}
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -239,15 +241,32 @@ def mix_messages(chat_id):
     if not os.path.exists(path): return random.choice(EMPTY_PHRASES)
     with open(path, "r", encoding="utf-8") as f: msgs = json.load(f)
     if len(msgs) < 2: return random.choice(EMPTY_PHRASES)
+    
     recent = msgs[-100:]
     msg1 = random.choice(recent)
     msg2 = random.choice(recent)
-    words1 = msg1.split(); words2 = msg2.split()
-    if len(words1) < 2: half1 = words1
-    else: half1 = words1[:len(words1)//2]
-    if len(words2) < 2: half2 = words2
-    else: half2 = words2[len(words2)//2:]
-    return " ".join(half1 + half2)
+    while msg2 == msg1 and len(recent) > 1:
+        msg2 = random.choice(recent)
+    
+    words1 = msg1.split()
+    words2 = msg2.split()
+    
+    if len(words1) < 3 and len(words2) < 3:
+        return absurd_word_salad(chat_id)
+    
+    if len(words1) >= 3:
+        cut1 = random.randint(2, len(words1) - 1)
+        part1 = words1[:cut1]
+    else:
+        part1 = words1
+    
+    if len(words2) >= 3:
+        cut2 = random.randint(1, len(words2) - 2)
+        part2 = words2[cut2:]
+    else:
+        part2 = words2
+    
+    return " ".join(part1 + part2)
 
 # ─── Опросы ───────────────────────────────────────────────────────────────────
 def send_random_poll(bot_instance, chat_id):
@@ -324,7 +343,7 @@ def send_template_meme(bot_instance, chat_id, reply_to=None, texts=None):
     tid = random.choice(IMGFLIP_TEMPLATES)
     if not texts:
         words = _chat_words(chat_id)
-        texts = [random.choice(EMPTY_PHRASES) for _ in range(2)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(2)]
+        texts = [random.choice(EMPTY_MEME_TEXTS) for _ in range(2)] if not words else [absurd_word_salad(chat_id, length=random.randint(2,5)) for _ in range(2)]
     url = make_imgflip_meme(tid, texts[:2])
     if url:
         try:
@@ -397,47 +416,40 @@ bot = telebot.TeleBot(TOKEN)
 def main_menu(cid):
     msgs = _load(cid, "messages")
     photos = _load(cid, "photos")
-    users = _load(cid, "users")
     lv = get_level(cid)
     lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
-    all_st = len(STICKERS) + len(_chat_stickers)
-    
-    total_chars = sum(len(m) for m in msgs)
-    if total_chars > 1000000: chars_str = f"{total_chars // 1000000} млн"
-    elif total_chars > 1000: chars_str = f"{total_chars // 1000} тыс"
-    else: chars_str = str(total_chars)
     
     txt = f"""🃏 <b>Лолыч</b>
 
 🔧 ID: <code>{cid}</code>
-🧠 Markov · ⭐ {lv_name}
+⭐ Активность: {lv_name}
 
-📚 Сообщений: {len(msgs)} · символов: {chars_str}
-🖼 Фото: {len(photos)} · 🎨 Стикеров: {all_st}
-👥: {len(users)}"""
+📚 Сообщений: {len(msgs)}
+🖼 Фото: {len(photos)} · 🎨 Стикеров: {len(_chat_stickers)}"""
     
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
     return txt, markup
 
-def fun_menu():
-    txt = """🎪 <b>Тут мои таланты</b>
-
-Смотри, не упади со смеху 😏"""
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
-    markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"), InlineKeyboardButton("🎬 Гифка", callback_data="gif"))
-    markup.add(InlineKeyboardButton("💬 Микс", callback_data="mix"), InlineKeyboardButton("🎙 Голос", callback_data="voice"))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+def fun_menu(page=1):
+    if page == 1:
+        txt = """🎪 <b>Не обращайте внимания, я просто рофлю 🥶</b>"""
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
+        markup.add(InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
+        markup.add(InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"), InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
+    else:
+        txt = """🎪 <b>Не обращайте внимания, я просто рофлю 🥶</b>"""
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+        markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"), InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
     return txt, markup
 
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
-    txt = """⚙️ <b>Параметры</b>
-
-Крути как хочешь, я запомню 🤙"""
+    txt = """⚙️ <b>Крути как хочешь, я не против 🦾</b>"""
     
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -469,6 +481,15 @@ def activity_menu(cid):
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
 
+def clear_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton("🗑 Всё", callback_data="clear_all"))
+    markup.add(InlineKeyboardButton("💬 Сообщения", callback_data="clear_msgs"))
+    markup.add(InlineKeyboardButton("🖼 Фото", callback_data="clear_photos"))
+    markup.add(InlineKeyboardButton("🎨 Стикеры", callback_data="clear_stickers"))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
+    return markup
+
 # ─── Приветствие ─────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["new_chat_members"])
 def handle_new_member(message):
@@ -481,6 +502,7 @@ def handle_new_member(message):
 def handle_sticker(message):
     cid = message.chat.id
     if is_muted(cid): return
+    if message.from_user.is_bot: return
     file_id = message.sticker.file_id
     if not message.sticker.is_animated and not message.sticker.is_video:
         if file_id not in _chat_stickers:
@@ -490,7 +512,7 @@ def handle_sticker(message):
     extras = LEVEL_EXTRAS.get(get_level(cid), LEVEL_EXTRAS[1])
     if _chat_stickers and random.random() < extras[5]:
         fid = random.choice(_chat_stickers)
-        bot.send_sticker(cid, fid, reply_to_message_id=message.message_id)
+        bot.send_sticker(cid, fid)
 
 # ─── Старт ──────────────────────────────────────────────────────────────────
 @bot.message_handler(commands=["start"])
@@ -507,30 +529,65 @@ def handle_buttons(call):
     
     nav = {
         "menu_back": main_menu(cid),
-        "menu_fun": fun_menu(),
+        "menu_fun": fun_menu(1),
+        "menu_fun_page2": fun_menu(2),
+        "menu_fun_page1": fun_menu(1),
         "menu_params": params_menu(cid),
         "menu_activity": activity_menu(cid),
     }
     
     if call.data in nav:
-        txt, markup = nav[call.data]
+        if call.data in ("menu_fun", "menu_fun_page1"):
+            txt, markup = fun_menu(1)
+        elif call.data == "menu_fun_page2":
+            txt, markup = fun_menu(2)
+        else:
+            txt, markup = nav[call.data]
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
     
     if call.data == "menu_clear":
+        bot.edit_message_text("🗑 <b>Что очистить?</b>", cid, call.message.message_id, reply_markup=clear_menu(), parse_mode="HTML")
+    elif call.data == "clear_all":
         _clear_confirm[cid] = True
+        _clear_category[cid] = "all"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
-        bot.edit_message_text("⚠️ <b>Удалить память?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text("⚠️ <b>Удалить ВСЁ?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    elif call.data == "clear_msgs":
+        _clear_confirm[cid] = True
+        _clear_category[cid] = "messages"
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
+        bot.edit_message_text("⚠️ <b>Удалить сообщения?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    elif call.data == "clear_photos":
+        _clear_confirm[cid] = True
+        _clear_category[cid] = "photos"
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
+        bot.edit_message_text("⚠️ <b>Удалить фото?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    elif call.data == "clear_stickers":
+        _chat_stickers.clear()
+        bot.edit_message_text("🎨 <b>Стикеры из чата удалены!</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "clear_yes":
         if cid in _clear_confirm and _clear_confirm[cid]:
-            for k in ["messages","users","photos","counter"]:
-                p = _chat_file(cid, f"{k}.json")
+            cat = _clear_category.get(cid, "all")
+            if cat in ("all", "messages"):
+                for k in ["messages","users"]:
+                    p = _chat_file(cid, f"{k}.json")
+                    if os.path.exists(p): os.remove(p)
+                    if f"{cid}_{k}" in _cache: del _cache[f"{cid}_{k}"]
+                if cid in _markov_models: del _markov_models[cid]
+                if cid in _markov_dirty: _markov_dirty[cid] = True
+            if cat in ("all", "photos"):
+                p = _chat_file(cid, "photos.json")
                 if os.path.exists(p): os.remove(p)
-            for p in ["messages","users","photos","counter"]:
-                if f"{cid}_{p}" in _cache: del _cache[f"{cid}_{p}"]
-            if cid in _markov_models: del _markov_models[cid]
-            if cid in _markov_dirty: _markov_dirty[cid] = True
+                if f"{cid}_photos" in _cache: del _cache[f"{cid}_photos"]
+            if cat == "all":
+                p = _chat_file(cid, "counter.json")
+                if os.path.exists(p): os.remove(p)
+                if f"{cid}_counter" in _cache: del _cache[f"{cid}_counter"]
+                _chat_stickers.clear()
             _clear_confirm[cid] = False
             bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")
     elif call.data == "toggle_mat":
@@ -566,6 +623,7 @@ def handle_buttons(call):
 @bot.message_handler(func=lambda m: True, content_types=["text"])
 def handle_message(message):
     if not message.text or message.text.startswith("/"): return
+    if message.from_user.is_bot: return
     cid=message.chat.id
     if is_muted(cid): return
     
@@ -636,6 +694,7 @@ def handle_message(message):
 # ─── Фото ─────────────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
+    if message.from_user.is_bot: return
     cid=message.chat.id
     if is_muted(cid): return
     fid=message.photo[-1].file_id
