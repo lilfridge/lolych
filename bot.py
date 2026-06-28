@@ -1,3 +1,8 @@
+import os as _os
+_base = _os.path.dirname(_os.path.abspath(__file__))
+print(f"[DEBUG] base_dir: {_base}")
+print(f"[DEBUG] files: {_os.listdir(_base)[:10]}")
+
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import markovify
@@ -108,7 +113,7 @@ PHOTO_TEMPLATES = {
         "texts": [{"x": 67, "y": 1589, "w": 502, "h": 87}],
     },
     "IMG_4837.jpeg": {
-        "photos": [{"x": 424, "y": 552, "w": 412, "h": 365}],
+        "photos": [{"x": 348, "y": 21, "w": 323, "h": 323}],
         "texts": [],
     },
     "IMG_4838.JPG": {
@@ -411,7 +416,6 @@ def make_photo_meme(chat_id):
             txt = absurd_word_salad(chat_id, length=random.randint(2, 5))
             tx, ty, tw, th = text_slot["x"], text_slot["y"], text_slot["w"], text_slot["h"]
             
-            # Шрифт по новому методу
             base_dir = os.path.dirname(os.path.abspath(__file__))
             font_paths = [
                 os.path.join(base_dir, "DejaVuSans.ttf"),
@@ -432,7 +436,6 @@ def make_photo_meme(chat_id):
                 font = ImageFont.load_default()
                 font_size = 20
             
-            # Перенос текста
             lines = []
             words = txt.split()
             current = ""
@@ -453,7 +456,6 @@ def make_photo_meme(chat_id):
             if current: lines.append(current)
             if not lines: lines = [txt]
             
-            # Рисуем текст
             line_h = font_size + 4
             total_h = line_h * len(lines)
             y = ty + (th - total_h) // 2
@@ -465,12 +467,10 @@ def make_photo_meme(chat_id):
                     text_w = font.getsize(line)[0]
                 x = tx + (tw - text_w) // 2
                 
-                # Обводка
                 for dx in range(-2, 3):
                     for dy in range(-2, 3):
                         if dx != 0 or dy != 0:
                             draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0, 255))
-                # Белый текст
                 draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
                 y += line_h
 
@@ -739,6 +739,18 @@ def cmd_start(message):
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
+@bot.message_handler(commands=["развлечения", "fun"])
+def cmd_fun(message):
+    cid = message.chat.id
+    txt, markup = fun_menu(1)
+    bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
+
+@bot.message_handler(commands=["параметры", "settings"])
+def cmd_params(message):
+    cid = message.chat.id
+    txt, markup = params_menu(cid)
+    bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
+
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
@@ -856,7 +868,6 @@ def handle_message(message):
     
     text=message.text; name=message.from_user.first_name or "Аноним"; uid=message.from_user.id
     
-    # Режим поиска гифки
     if _gif_mode.get(cid):
         _gif_mode[cid] = False
         gif_url = get_gif_by_query(text)
