@@ -557,7 +557,7 @@ def handle_buttons(call):
             txt, markup = nav[call.data]
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
         return
-    
+
     if call.data == "menu_clear":
         txt, markup = clear_menu()
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
@@ -569,7 +569,7 @@ def handle_buttons(call):
         bot.edit_message_text("⚠️ <b>Удалить ВСЁ?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_msgs":
         _clear_confirm[cid] = True
-        _clear_category[cid] = "messages"
+        _clear_category[cid] = "messages"   
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
         bot.edit_message_text("⚠️ <b>Удалить сообщения?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
@@ -601,8 +601,9 @@ def handle_buttons(call):
                 if os.path.exists(p): os.remove(p)
                 if f"{cid}_counter" in _cache: del _cache[f"{cid}_counter"]
                 _chat_stickers.clear()
+                _my_photos.clear()
             _clear_confirm[cid] = False
-            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")
+            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")    
     elif call.data == "toggle_mat":
         s = get_settings(cid); s["no_mat"] = not s.get("no_mat", False); save_settings(cid)
         txt, markup = activity_menu(cid)
