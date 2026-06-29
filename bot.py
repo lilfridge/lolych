@@ -980,4 +980,6 @@ def handle_photo(message):
         bot.reply_to(message, random.choice([absurd_word_salad(cid, length=random.randint(1,10)), random.choice(EMOJI)*random.randint(1,2), "это чё такое?", "🤔"]))
 
 log.info("Лолыч проснулся!")
-bot.polling(none_stop=True)
+import os as _os2
+log.info(f"[KILL] PID: {_os2.getpid()}")
+bot.polling(none_stop=True, timeout=60, long_polling_timeout=30)
