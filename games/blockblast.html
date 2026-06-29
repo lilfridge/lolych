@@ -1,211 +1,411 @@
-cd ~/Desktop/lolych/games
-cat > blockblast.html << 'ENDOFGAME'
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-<title>Лолыч-Бласт</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Лолыч Бласт</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial;overflow:hidden}
-#header span{color:#fff;font-size:28px}
-#score{color:#fff;font-size:16px;text-align:center;margin:5px 0}
-#combo{color:#e94560;font-size:14px;text-align:center;height:20px}
-#game{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:#111;padding:4px;border-radius:8px;width:min(90vw,380px);height:min(90vw,380px)}
-.cell{background:#1a1a1a;border-radius:3px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all 0.15s}
-.cell.filled{background:#1a3a2a;animation:pop 0.2s}
-#pieces{display:flex;gap:10px;margin:12px 0;justify-content:center;flex-wrap:wrap}
-.piece{display:grid;gap:2px;background:#111;padding:6px;border-radius:8px;cursor:pointer;border:2px solid transparent}
-.piece.selected{border-color:#e94560}
-.piece .pcell{width:24px;height:24px;background:#1a1a1a;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:14px}
-.piece .pcell.active{background:#1a3a2a}
-#phrase{color:#e94560;font-size:18px;text-align:center;height:30px;margin:5px 0}
-#gameover{color:#fff;text-align:center;display:none;position:absolute;background:rgba(0,0,0,0.9);width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center}
-#gameover h2{font-size:28px;margin-bottom:10px}
-#gameover p{font-size:16px;margin:5px 0}
-#gameover button{background:#e94560;color:#fff;border:none;padding:12px 30px;font-size:16px;border-radius:8px;margin:8px;cursor:pointer}
-#gameover .share{background:#25D366}
-@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f0f1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  #header .logo { font-size: 28px; }
+  #header .title { color: #e94560; font-size: 24px; font-weight: bold; }
+  #score-panel {
+    display: flex;
+    justify-content: space-between;
+    width: 320px;
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  #combo-text {
+    color: #f0c040;
+    font-size: 16px;
+    height: 20px;
+    margin-bottom: 4px;
+  }
+  #game-board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    background: #1a1a2e;
+    padding: 6px;
+    border-radius: 12px;
+    width: 320px;
+    height: 320px;
+  }
+  .cell {
+    background: #252540;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    transition: background 0.15s;
+  }
+  .cell.filled {
+    background: #2e4a3e;
+    animation: pop 0.2s ease;
+  }
+  .cell.clearing {
+    background: #e94560;
+    animation: clearAnim 0.3s ease;
+  }
+  @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+  @keyframes clearAnim { 0% { background: #e94560; } 50% { background: #ffaa00; } 100% { background: #252540; } }
+  #pieces-container {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    justify-content: center;
+  }
+  .piece {
+    display: grid;
+    gap: 2px;
+    background: #1a1a2e;
+    padding: 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border 0.2s, transform 0.2s;
+  }
+  .piece.selected {
+    border-color: #e94560;
+    transform: scale(1.05);
+  }
+  .piece-cell {
+    width: 26px;
+    height: 26px;
+    background: #252540;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .piece-cell.active {
+    background: #2e4a3e;
+  }
+  #game-over {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    color: white;
+  }
+  #game-over h2 { font-size: 32px; color: #e94560; margin-bottom: 10px; }
+  #game-over p { font-size: 18px; margin: 5px 0; }
+  #game-over button {
+    background: #e94560;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    font-size: 18px;
+    border-radius: 8px;
+    margin: 8px;
+    cursor: pointer;
+  }
+  #game-over button.share { background: #25D366; }
 </style>
 </head>
 <body>
-<div id="header"><span>🃏 Лолыч-Бласт</span></div>
-<div id="score">🏆 <span id="sc">0</span> | 🔥 Рекорд: <span id="best">0</span></div>
-<div id="combo"></div>
-<div id="game"></div>
-<div id="phrase"></div>
-<div id="pieces"></div>
-<div id="gameover">
-<h2>жто не не!</h2>
-<p>Счёт: <span id="finalscore">0</span></p>
-<p>🔥 Лучший: <span id="finalbest">0</span></p>
-<button onclick="restart()">🔄 Ещё раз</button>
-<button class="share" onclick="share()">📤 В чат</button>
+<div id="header">
+  <span class="logo">🃏</span>
+  <span class="title">Лолыч Бласт</span>
 </div>
-<script>
-const SIZE=8;
-const EMOJIS=['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️'];
-const PHRASES=['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','АБСУРД!','🤡'];
+<div id="score-panel">
+  <span>🏆 <span id="score">0</span></span>
+  <span>🔥 Рекорд: <span id="best">0</span></span>
+</div>
+<div id="combo-text"></div>
+<div id="game-board"></div>
+<div id="pieces-container"></div>
 
-// Все фигуры во всех ориентациях (51 фигура)
-const ALL_SHAPES=[
-[[1]], // 1. точка
-[[1,1]], // 2. линия 2 гориз
-[[1],[1]], // линия 2 верт
-[[1,1,1]], // 3. линия 3 гориз
-[[1],[1],[1]], // линия 3 верт
-[[1,1,1,1]], // 4. линия 4 гориз
-[[1],[1],[1],[1]], // линия 4 верт
-[[1,1,1,1,1]], // 5. линия 5 гориз
-[[1],[1],[1],[1],[1]], // линия 5 верт
-[[1,1],[1,1]], // 6. квадрат 2x2
-[[1,1,1],[1,1,1]], // 7. прямоуг 2x3 гориз
-[[1,1],[1,1],[1,1]], // прямоуг 2x3 верт
-[[1,1,1],[1,1,1],[1,1,1]], // 8. квадрат 3x3
-[[1,0],[1,1]], // 9. малый L (вверх)
-[[0,1],[1,1]], // 10. малый J (вверх)
-[[1,1],[1,0]], // малый L (вниз)
-[[1,1],[0,1]], // малый J (вниз)
-[[1,0],[1,0],[1,1]], // 11. L (вверх)
-[[0,1],[0,1],[1,1]], // 12. J (вверх)
-[[1,1],[1,0],[1,0]], // L (вправо)
-[[1,1],[0,1],[0,1]], // J (вправо)
-[[1,1,1],[1,0,0]], // L (вниз)
-[[1,1,1],[0,0,1]], // J (вниз)
-[[0,0,1],[1,1,1]], // L (влево)
-[[1,0,0],[1,1,1]], // J (влево)
-[[1,0,0],[1,0,0],[1,1,1]], // 13. большой L (вверх)
-[[0,0,1],[0,0,1],[1,1,1]], // 14. большой J (вверх)
-[[1,1,1],[1,0,0],[1,0,0]], // большой L (вправо)
-[[1,1,1],[0,0,1],[0,0,1]], // большой J (вправо)
-[[1,1,1],[0,1,0]], // 15. T (вверх)
-[[0,1,0],[1,1,1]], // 16. перевернутый T
-[[1,0],[1,1],[1,0]], // 17. T влево
-[[0,1],[1,1],[0,1]], // 18. T вправо
-[[0,1,1],[1,1,0]], // 19. S
-[[1,1,0],[0,1,1]], // 20. Z
-[[1,0],[1,1],[0,1]], // 21. верт S
-[[0,1],[1,1],[1,0]], // 22. верт Z
-[[1,0,1],[1,1,1]], // 23. U
-[[1,0,0],[1,0,0],[1,1,1]], // 24. V
-[[1,1],[1,1],[1,0]], // 25. P (вверх)
-[[1,1],[1,1],[0,1]], // 26. зеркальная P (вверх)
-[[1,1,0],[0,1,0],[0,1,0]], // 27. ступенька
-[[0,1,1],[0,1,0],[0,1,0]], // 28. зеркальная ступенька
-[[1,1],[1,0],[1,0]], // P вправо
-[[1,1],[0,1],[0,1]], // зерк P вправо
-[[0,1,0],[0,1,0],[1,1,0]], // ступенька гориз
-[[0,1,0],[0,1,0],[0,1,1]], // зерк ступенька гориз
+<div id="game-over">
+  <h2>жто не не!</h2>
+  <p>Счёт: <span id="final-score">0</span></p>
+  <p>🔥 Лучший: <span id="final-best">0</span></p>
+  <button onclick="restart()">🔄 Ещё раз</button>
+  <button class="share" onclick="share()">📤 Поделиться</button>
+</div>
+
+<script>
+// --- НАСТРОЙКИ ---
+const SIZE = 8;
+const EMOJIS = ['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️','👾','🎃','🤖','👽'];
+const PHRASES = ['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','АБСУРД!','🤡','ОГОНЬ!'];
+
+// Все формы (51 вариант)
+const SHAPES = [
+  [[1]], // точка
+  [[1,1]], [[1],[1]], // линия 2
+  [[1,1,1]], [[1],[1],[1]], // линия 3
+  [[1,1,1,1]], [[1],[1],[1],[1]], // линия 4
+  [[1,1,1,1,1]], [[1],[1],[1],[1],[1]], // линия 5
+  [[1,1],[1,1]], // квадрат 2x2
+  [[1,1,1],[1,1,1]], // прямоуг 2x3 гориз
+  [[1,1],[1,1],[1,1]], // прямоуг 2x3 верт
+  [[1,1,1],[1,1,1],[1,1,1]], // квадрат 3x3
+  [[1,0],[1,1]], [[0,1],[1,1]], [[1,1],[1,0]], [[1,1],[0,1]], // L малый
+  [[1,0],[1,0],[1,1]], [[0,1],[0,1],[1,1]], // L
+  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]], // L повернутый
+  [[1,1,1],[1,0,0]], [[1,1,1],[0,0,1]], // L вниз
+  [[0,0,1],[1,1,1]], [[1,0,0],[1,1,1]], // L вверх ногами
+  [[1,0,0],[1,0,0],[1,1,1]], [[0,0,1],[0,0,1],[1,1,1]], // большой L
+  [[1,1,1],[1,0,0],[1,0,0]], [[1,1,1],[0,0,1],[0,0,1]], // большой L повернутый
+  [[1,1,1],[0,1,0]], [[0,1,0],[1,1,1]], // T
+  [[1,0],[1,1],[1,0]], [[0,1],[1,1],[0,1]], // T повернутый
+  [[0,1,1],[1,1,0]], [[1,1,0],[0,1,1]], // S, Z
+  [[1,0],[1,1],[0,1]], [[0,1],[1,1],[1,0]], // S/Z верт
+  [[1,0,1],[1,1,1]], // U
+  [[1,0,0],[1,0,0],[1,1,1]], // V (уже есть)
+  [[1,1],[1,1],[1,0]], [[1,1],[1,1],[0,1]], // P
+  [[1,1,0],[0,1,0],[0,1,0]], [[0,1,1],[0,1,0],[0,1,0]], // ступенька
+  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]], // P вправо
+  [[0,1,0],[0,1,0],[1,1,0]], [[0,1,0],[0,1,0],[0,1,1]], // ступенька гориз
 ];
 
-let board=[],score=0,combo=0,best=localStorage.getItem('lolych_best')||0,pieces=[],selIdx=-1,gameOver=false;
-document.getElementById('best').textContent=best;
+// --- ПЕРЕМЕННЫЕ ---
+let board = [];
+let score = 0;
+let combo = 0;
+let bestScore = parseInt(localStorage.getItem('lolych_best') || '0');
+let pieces = [];          // { shape, emoji }
+let selectedIndex = -1;
+let gameOver = false;
 
-function createBoard(){
-board=Array(SIZE).fill().map(()=>Array(SIZE).fill(0));
-score=0;combo=0;selIdx=-1;gameOver=false;
-document.getElementById('gameover').style.display='none';
-document.getElementById('sc').textContent=score;
-document.getElementById('combo').textContent='';
-document.getElementById('phrase').textContent='';
-renderBoard();
-generatePieces();
-}
+// --- DOM ---
+const boardEl = document.getElementById('game-board');
+const piecesEl = document.getElementById('pieces-container');
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const comboEl = document.getElementById('combo-text');
+const gameOverEl = document.getElementById('game-over');
+const finalScoreEl = document.getElementById('final-score');
+const finalBestEl = document.getElementById('final-best');
 
-function renderBoard(){
-const g=document.getElementById('game');
-g.innerHTML='';
-for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
-const cell=document.createElement('div');
-cell.className='cell'+(board[y][x]?' filled':'');
-cell.textContent=board[y][x]||'';
-cell.addEventListener('click',()=>placePiece(x,y));
-g.appendChild(cell);
-}
-}
+bestEl.textContent = bestScore;
 
-function generatePieces(){
-pieces=[];
-for(let i=0;i<3;i++){
-const shape=ALL_SHAPES[Math.floor(Math.random()*ALL_SHAPES.length)];
-pieces.push({shape:shape,emoji:EMOJIS[Math.floor(Math.random()*EMOJIS.length)]});
-}
-renderPieces();
-}
-
-function renderPieces(){
-const pdiv=document.getElementById('pieces');
-pdiv.innerHTML='';
-pieces.forEach((p,i)=>{
-const div=document.createElement('div');
-div.className='piece'+(i===selIdx?' selected':'');
-div.style.gridTemplateColumns=`repeat(${p.shape[0].length},1fr)`;
-for(let y=0;y<p.shape.length;y++)for(let x=0;x<p.shape[0].length;x++){
-const c=document.createElement('div');
-c.className='pcell'+(p.shape[y][x]?' active':'');
-if(p.shape[y][x])c.textContent=p.emoji;
-div.appendChild(c);
-}
-div.addEventListener('click',()=>{selIdx=i;renderPieces()});
-pdiv.appendChild(div);
-});
+// --- ЗВУК ---
+function beep(freq, duration = 0.08) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.value = 0.1;
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
 }
 
-function placePiece(px,py){
-if(selIdx<0||gameOver)return;
-const {shape,emoji}=pieces[selIdx];
-const h=shape.length,w=shape[0].length;
-if(px+w>SIZE||py+h>SIZE)return;
-for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(shape[y][x]&&board[py+y][px+x])return;
-for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(shape[y][x])board[py+y][px+x]=emoji;
-renderBoard();
-const lines=checkLines();
-if(lines>0){combo++;score+=lines*10*combo;document.getElementById('phrase').textContent=PHRASES[Math.floor(Math.random()*PHRASES.length)];document.getElementById('combo').textContent=combo>1?`🔥 x${combo} комбо!`:'';setTimeout(()=>{document.getElementById('phrase').textContent='';document.getElementById('combo').textContent=''},1500)}
-else{combo=0}
-score+=1;
-document.getElementById('sc').textContent=score;
-pieces.splice(selIdx,1);selIdx=-1;
-if(pieces.length===0)generatePieces();else renderPieces();
-if(isGameOver())endGame();
+// --- ИГРОВАЯ ЛОГИКА ---
+function initGame() {
+  board = Array(SIZE).fill().map(() => Array(SIZE).fill(''));
+  score = 0;
+  combo = 0;
+  selectedIndex = -1;
+  gameOver = false;
+  gameOverEl.style.display = 'none';
+  updateScore();
+  renderBoard();
+  generatePieces();
 }
 
-function checkLines(){
-let cleared=0;
-for(let y=0;y<SIZE;y++)if(board[y].every(c=>c)){board[y].fill(0);cleared++}
-for(let x=0;x<SIZE;x++)if(board.every(r=>r[x])){for(let y=0;y<SIZE;y++)board[y][x]=0;cleared++}
-if(cleared)renderBoard();
-return cleared;
+function renderBoard() {
+  boardEl.innerHTML = '';
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (board[y][x] ? ' filled' : '');
+      cell.textContent = board[y][x] || '';
+      cell.addEventListener('click', () => onCellClick(x, y));
+      // поддержка drag-and-drop
+      cell.addEventListener('dragover', e => e.preventDefault());
+      cell.addEventListener('drop', e => {
+        e.preventDefault();
+        if (selectedIndex >= 0) placePiece(x, y);
+      });
+      boardEl.appendChild(cell);
+    }
+  }
 }
 
-function isGameOver(){
-for(const p of pieces){
-const h=p.shape.length,w=p.shape[0].length;
-for(let y=0;y<=SIZE-h;y++)for(let x=0;x<=SIZE-w;x++){
-let fits=true;
-for(let sy=0;sy<h&&fits;sy++)for(let sx=0;sx<w&&fits;sx++)if(p.shape[sy][sx]&&board[y+sy][x+sx])fits=false;
-if(fits)return false;
-}
-}
-return true;
+function generatePieces() {
+  while (pieces.length < 3) {
+    const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    const emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+    pieces.push({ shape, emoji });
+  }
+  renderPieces();
 }
 
-function endGame(){
-gameOver=true;
-if(score>best){best=score;localStorage.setItem('lolych_best',best)}
-document.getElementById('gameover').style.display='flex';
-document.getElementById('finalscore').textContent=score;
-document.getElementById('finalbest').textContent=best;
+function renderPieces() {
+  piecesEl.innerHTML = '';
+  pieces.forEach((p, idx) => {
+    const pieceDiv = document.createElement('div');
+    pieceDiv.className = 'piece' + (idx === selectedIndex ? ' selected' : '');
+    pieceDiv.draggable = true;
+    pieceDiv.addEventListener('dragstart', (e) => {
+      selectedIndex = idx;
+      renderPieces();
+      e.dataTransfer.setData('text/plain', '');
+    });
+    pieceDiv.addEventListener('click', () => {
+      selectedIndex = (selectedIndex === idx) ? -1 : idx;
+      renderPieces();
+    });
+
+    const cols = p.shape[0].length;
+    pieceDiv.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    for (let y = 0; y < p.shape.length; y++) {
+      for (let x = 0; x < cols; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'piece-cell' + (p.shape[y][x] ? ' active' : '');
+        if (p.shape[y][x]) cell.textContent = p.emoji;
+        pieceDiv.appendChild(cell);
+      }
+    }
+    piecesEl.appendChild(pieceDiv);
+  });
 }
 
-function restart(){createBoard()}
-
-function share(){
-const text=encodeURIComponent(`🃏 Лолыч-Бласт!\n🏆 Мой рекорд: ${score} очков\n🔥 Лучший: ${best}\n\nИграй: @Lolych_bot`);
-window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${text}`);
+function onCellClick(x, y) {
+  if (gameOver || selectedIndex < 0) return;
+  placePiece(x, y);
 }
 
-createBoard();
+function placePiece(originX, originY) {
+  if (selectedIndex < 0 || gameOver) return;
+  const piece = pieces[selectedIndex];
+  const shape = piece.shape;
+  const h = shape.length;
+  const w = shape[0].length;
+
+  // Проверка, помещается ли
+  if (originX + w > SIZE || originY + h > SIZE) return;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (shape[y][x] && board[originY + y][originX + x]) return;
+
+  // Размещение
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (shape[y][x])
+        board[originY + y][originX + x] = piece.emoji;
+
+  beep(600 + score * 2);
+  score += 1;
+  combo = 0;
+
+  // Удаление использованной фигуры
+  pieces.splice(selectedIndex, 1);
+  selectedIndex = -1;
+
+  // Проверка заполненных линий
+  let linesCleared = 0;
+  for (let y = 0; y < SIZE; y++) {
+    if (board[y].every(cell => cell !== '')) {
+      board[y].fill('');
+      linesCleared++;
+    }
+  }
+  for (let x = 0; x < SIZE; x++) {
+    if (board.every(row => row[x] !== '')) {
+      for (let y = 0; y < SIZE; y++) board[y][x] = '';
+      linesCleared++;
+    }
+  }
+
+  if (linesCleared > 0) {
+    combo++;
+    score += linesCleared * 10 * combo;
+    beep(900, 0.15);
+    comboEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+    setTimeout(() => comboEl.textContent = '', 1500);
+  }
+
+  updateScore();
+  renderBoard();
+
+  // Пополнение фигур
+  while (pieces.length < 3) {
+    const newShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    const newEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+    pieces.push({ shape: newShape, emoji: newEmoji });
+  }
+  renderPieces();
+
+  if (checkGameOver()) endGame();
+}
+
+function checkGameOver() {
+  for (const piece of pieces) {
+    const shape = piece.shape;
+    const h = shape.length, w = shape[0].length;
+    for (let y = 0; y <= SIZE - h; y++) {
+      for (let x = 0; x <= SIZE - w; x++) {
+        let fits = true;
+        for (let sy = 0; sy < h && fits; sy++)
+          for (let sx = 0; sx < w && fits; sx++)
+            if (shape[sy][sx] && board[y + sy][x + sx]) fits = false;
+        if (fits) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function endGame() {
+  gameOver = true;
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem('lolych_best', bestScore);
+    bestEl.textContent = bestScore;
+  }
+  finalScoreEl.textContent = score;
+  finalBestEl.textContent = bestScore;
+  gameOverEl.style.display = 'flex';
+  beep(300, 0.3);
+}
+
+function updateScore() {
+  scoreEl.textContent = score;
+}
+
+function restart() {
+  pieces = [];
+  initGame();
+}
+
+function share() {
+  const text = `🃏 Лолыч Бласт! Мой рекорд: ${score} очков (лучший: ${bestScore}). Попробуй: @Lolych_bot`;
+  window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(text)}`);
+}
+
+// --- СТАРТ ---
+initGame();
 </script>
 </body>
 </html>
-ENDOFGAME
