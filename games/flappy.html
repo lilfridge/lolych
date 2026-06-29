@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Flappy Bird</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;background:#70c5ce;display:flex;justify-content:center;align-items:center;height:100vh}
+canvas{background:#70c5ce}
+</style>
+</head>
+<body>
+<canvas id="g"></canvas>
+<script>
+const c=document.getElementById('g'),ctx=c.getContext('2d'),w=320,h=480;
+c.width=w;c.height=h;
+let bird={x:60,y:h/2,dy:0},pipes=[],score=0,gameOver=false;
+function draw(){
+ctx.fillStyle='#70c5ce';ctx.fillRect(0,0,w,h);
+ctx.fillStyle='#ff0';ctx.fillRect(bird.x,bird.y,20,20);
+ctx.fillStyle='#0f0';pipes.forEach(p=>{ctx.fillRect(p.x,0,40,p.top);ctx.fillRect(p.x,p.bottom,40,h-p.bottom)});
+ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText('Score: '+score,10,30);
+if(gameOver){ctx.fillText('TAP TO RESTART',w/2-70,h/2)}
+}
+function update(){
+if(gameOver)return;
+bird.dy+=0.5;bird.y+=bird.dy;
+if(bird.y<0||bird.y>h-20)end();
+pipes.forEach(p=>{p.x-=2;if(p.x==bird.x)score++;if(p.x<-40)pipes.shift()});
+pipes.forEach(p=>{if(bird.x+20>p.x&&bird.x<p.x+40&&(bird.y<p.top||bird.y+20>p.bottom))end()});
+if(pipes.length===0||pipes[pipes.length-1].x<w-150){
+const top=Math.random()*(h-200)+50;pipes.push({x:w,top:top,bottom:top+100})
+}
+}
+function end(){gameOver=true}
+setInterval(()=>{update();draw()},20);
+c.addEventListener('click',()=>{if(gameOver){bird.y=h/2;bird.dy=0;pipes=[];score=0;gameOver=false}else{bird.dy=-7}});
+</script>
+</body>
+</html>
