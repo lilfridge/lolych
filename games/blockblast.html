@@ -5,40 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial;overflow:hidden}
-#score{color:#fff;font-size:20px;margin:10px 0}
-#game{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:#16213e;padding:4px;border-radius:8px;width:min(90vw,400px);height:min(90vw,400px)}
-.cell{background:#0f3460;border-radius:3px;aspect-ratio:1}
-.cell.filled{background:#e94560;animation:pop 0.2s}
-.cell.cleared{background:#00ff88;animation:clear 0.3s}
-#pieces{display:flex;gap:10px;margin:15px 0;justify-content:center;flex-wrap:wrap}
-.piece{display:grid;gap:2px;background:#16213e;padding:4px;border-radius:6px;cursor:pointer;touch-action:none}
-.piece .cell{width:28px;height:28px}
-#gameover{color:#fff;text-align:center;display:none}
-#gameover button{background:#e94560;color:#fff;border:none;padding:10px 30px;font-size:18px;border-radius:8px;margin-top:10px;cursor:pointer}
+body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial;overflow:hidden}
+#header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+#header span{color:#fff;font-size:28px}
+#score{color:#fff;font-size:16px;text-align:center;margin:5px 0}
+#combo{color:#e94560;font-size:14px;text-align:center;height:20px}
+#game{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:#111;padding:4px;border-radius:8px;width:min(90vw,380px);height:min(90vw,380px)}
+.cell{background:#1a1a1a;border-radius:3px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all 0.15s}
+.cell.filled{background:#1a3a2a;animation:pop 0.2s}
+.cell.clearing{background:#e94560;animation:clear 0.3s}
+#pieces{display:flex;gap:12px;margin:12px 0;justify-content:center}
+.piece{display:grid;gap:2px;background:#111;padding:6px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:border 0.2s}
+.piece.selected{border-color:#e94560}
+.piece .pcell{width:26px;height:26px;background:#1a1a1a;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.piece .pcell.active{background:#1a3a2a}
+#phrase{color:#e94560;font-size:18px;text-align:center;height:30px;margin:5px 0}
+#gameover{color:#fff;text-align:center;display:none;position:absolute;background:rgba(0,0,0,0.9);width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center}
+#gameover h2{font-size:28px;margin-bottom:10px}
+#gameover p{font-size:16px;margin:5px 0}
+#gameover button{background:#e94560;color:#fff;border:none;padding:12px 30px;font-size:16px;border-radius:8px;margin:8px;cursor:pointer}
+#gameover .share{background:#25D366}
 @keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
-@keyframes clear{0%{background:#00ff88}100%{background:#0f3460}}
+@keyframes clear{0%{background:#e94560}50%{background:#ff8800}100%{background:#1a1a1a}}
 </style>
 </head>
 <body>
-<div id="score">🏗 Лолыч-Бласт | Счёт: <span id="sc">0</span></div>
+<div id="header"><span>🃏</span><span style="font-size:20px">Лолыч-Бласт</span></div>
+<div id="score">🏆 <span id="sc">0</span> | 🔥 Рекорд: <span id="best">0</span></div>
+<div id="combo"></div>
 <div id="game"></div>
+<div id="phrase"></div>
 <div id="pieces"></div>
 <div id="gameover">
 <h2>жто не не!</h2>
 <p>Счёт: <span id="finalscore">0</span></p>
+<p>🔥 Лучший: <span id="finalbest">0</span></p>
 <button onclick="restart()">🔄 Ещё раз</button>
+<button class="share" onclick="share()">📤 В чат</button>
 </div>
 <script>
-const SIZE=8;
-let board=[],score=0,selectedPiece=null,gameOver=false;
-const EMOJIS=['💀','🗿','🤡','🔥','😭','👀','💩','🧠'];
+const SIZE=8,EMOJIS=['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️'];
+const PHRASES=['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','АБСУРД!','🤡'];
+let board=[],score=0,combo=0,best=localStorage.getItem('lolych_best')||0,pieces=[],selIdx=-1,gameOver=false;
+document.getElementById('best').textContent=best;
 
 function createBoard(){
 board=Array(SIZE).fill().map(()=>Array(SIZE).fill(0));
-score=0;gameOver=false;
+score=0;combo=0;selIdx=-1;gameOver=false;
 document.getElementById('gameover').style.display='none';
 document.getElementById('sc').textContent=score;
+document.getElementById('combo').textContent='';
+document.getElementById('phrase').textContent='';
 renderBoard();
 generatePieces();
 }
@@ -49,71 +66,70 @@ g.innerHTML='';
 for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
 const cell=document.createElement('div');
 cell.className='cell'+(board[y][x]?' filled':'');
-cell.dataset.x=x;cell.dataset.y=y;
+cell.textContent=board[y][x]||'';
 cell.addEventListener('click',()=>placePiece(x,y));
 g.appendChild(cell);
 }
 }
 
-const PIECES=[
-[[1]],[[1,1]],[[1],[1]],[[1,1,1]],[[1],[1],[1]],
-[[1,1],[1,0]],[[1,1],[0,1]],[[1,0],[1,1]],
-[[1,1],[1,1]],[[1,1,1],[1,0,0]]
-];
-
 function generatePieces(){
+const shapes=[[[1]],[[1,1]],[[1],[1]],[[1,1,1]],[[1],[1],[1]],[[1,1],[1,0]],[[1,1],[0,1]],[[1,0],[1,1]],[[1,1],[1,1]],[[1,1,1],[0,1,0]]];
+pieces=[];
+for(let i=0;i<3;i++)pieces.push({shape:shapes[Math.floor(Math.random()*shapes.length)],emoji:EMOJIS[Math.floor(Math.random()*EMOJIS.length)]});
+renderPieces();
+}
+
+function renderPieces(){
 const pdiv=document.getElementById('pieces');
 pdiv.innerHTML='';
-for(let i=0;i<3;i++){
-const shape=PIECES[Math.floor(Math.random()*PIECES.length)];
+pieces.forEach((p,i)=>{
 const div=document.createElement('div');
-div.className='piece';
-div.style.gridTemplateColumns=`repeat(${shape[0].length},1fr)`;
-const emoji=EMOJIS[Math.floor(Math.random()*EMOJIS.length)];
-for(let y=0;y<shape.length;y++)for(let x=0;x<shape[0].length;x++){
+div.className='piece'+(i===selIdx?' selected':'');
+div.style.gridTemplateColumns=`repeat(${p.shape[0].length},1fr)`;
+for(let y=0;y<p.shape.length;y++)for(let x=0;x<p.shape[0].length;x++){
 const c=document.createElement('div');
-c.className='cell'+(shape[y][x]?' filled':'');
-if(shape[y][x])c.textContent=emoji;
+c.className='pcell'+(p.shape[y][x]?' active':'');
+if(p.shape[y][x])c.textContent=p.emoji;
 div.appendChild(c);
 }
-div.addEventListener('click',()=>{selectedPiece={shape,emoji};document.querySelectorAll('.piece').forEach(p=>p.style.border='');div.style.border='2px solid #e94560'});
+div.addEventListener('click',()=>{selIdx=i;renderPieces()});
 pdiv.appendChild(div);
-}
+});
 }
 
 function placePiece(px,py){
-if(!selectedPiece||gameOver)return;
-const {shape,emoji}=selectedPiece;
+if(selIdx<0||gameOver)return;
+const {shape,emoji}=pieces[selIdx];
 const h=shape.length,w=shape[0].length;
 if(px+w>SIZE||py+h>SIZE)return;
 for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(shape[y][x]&&board[py+y][px+x])return;
 for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(shape[y][x])board[py+y][px+x]=emoji;
 renderBoard();
-checkLines();
-selectedPiece=null;
-if(!isGameOver())generatePieces();
-else endGame();
+playSound(800,0.1);
+const lines=checkLines();
+if(lines>0){combo++;score+=lines*10*combo;document.getElementById('phrase').textContent=PHRASES[Math.floor(Math.random()*PHRASES.length)];document.getElementById('combo').textContent=combo>1?`🔥 x${combo} комбо!`:'';playSound(1200,0.15);setTimeout(()=>{document.getElementById('phrase').textContent='';document.getElementById('combo').textContent=''},1500)}
+else{combo=0}
+score+=1;
+document.getElementById('sc').textContent=score;
+pieces.splice(selIdx,1);selIdx=-1;
+if(pieces.length===0)generatePieces();else renderPieces();
+if(isGameOver())endGame();
 }
 
 function checkLines(){
 let cleared=0;
 for(let y=0;y<SIZE;y++)if(board[y].every(c=>c)){board[y].fill(0);cleared++}
 for(let x=0;x<SIZE;x++)if(board.every(r=>r[x])){for(let y=0;y<SIZE;y++)board[y][x]=0;cleared++}
-score+=cleared*10;
-document.getElementById('sc').textContent=score;
 if(cleared)renderBoard();
+return cleared;
 }
 
 function isGameOver(){
-for(let i=0;i<3;i++){
-const piece=document.querySelectorAll('.piece')[i];
-if(!piece)continue;
-}
-for(const shape of PIECES){
-const h=shape.length,w=shape[0].length;
+for(const p of pieces){
+const h=p.shape.length,w=p.shape[0].length;
 for(let y=0;y<=SIZE-h;y++)for(let x=0;x<=SIZE-w;x++){
 let fits=true;
-for(let sy=0;sy<h&&fits;sy++)for(let sx=0;sx<w&&fits;sx++)if(shape[sy][sx]&&board[y+sy][x+sx])fits=false;
+for(let sy=0;sy<h&&fits;sy++)for(let sx=0;sx<w&&fits;sx++)if(p.shape[sy][sx]&&board[y+sy][x+sx])fits=false;
 if(fits)return false;
 }
 }
@@ -122,11 +138,24 @@ return true;
 
 function endGame(){
 gameOver=true;
-document.getElementById('gameover').style.display='block';
+if(score>best){best=score;localStorage.setItem('lolych_best',best)}
+document.getElementById('gameover').style.display='flex';
 document.getElementById('finalscore').textContent=score;
+document.getElementById('finalbest').textContent=best;
+playSound(400,0.3);
 }
 
 function restart(){createBoard()}
+
+function share(){
+const text=encodeURIComponent(`🃏 Лолыч-Бласт!\n🏆 Мой рекорд: ${score} очков\n🔥 Лучший: ${best}\n\nИграй: @Lolych_bot`);
+window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${text}`);
+}
+
+function playSound(freq,dur){
+try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=freq;g.gain.value=dur;o.start();o.stop(a.currentTime+0.1)}catch(e){}
+}
+
 createBoard();
 </script>
 </body>
