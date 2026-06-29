@@ -33,6 +33,8 @@ GIPHY_KEY = os.environ.get("GIPHY_KEY")
 IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
+DONATE_URL = "https://pay.cloudtips.ru/p/acfca99a"
+
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
 LEVELS = {
@@ -580,6 +582,7 @@ def main_menu(cid):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
+    markup.add(InlineKeyboardButton("☕ Донат", url=DONATE_URL))
     return txt, markup
 
 def fun_menu(page=1):
@@ -656,7 +659,7 @@ def clear_menu():
 def handle_new_member(message):
     for member in message.new_chat_members:
         if member.username == bot.get_me().username:
-            bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>", parse_mode="HTML")
+            bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>\n☕ <a href='{}'>Поддержать бота</a>".format(DONATE_URL), parse_mode="HTML")
 
 # ─── Стикеры из чата ─────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["sticker"])
@@ -683,6 +686,7 @@ def cmd_start(message):
         d[cid] = False
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
+    bot.send_message(cid, "🤖 <b>Добавь меня в свой чат:</b> @Lolych_bot\n☕ <a href='{}'>Поддержать бота</a>".format(DONATE_URL), parse_mode="HTML")
 
 @bot.message_handler(commands=["fun"])
 def cmd_fun(message):
