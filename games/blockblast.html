@@ -12,114 +12,132 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     font-family: 'Segoe UI', Arial, sans-serif;
     touch-action: manipulation;
     user-select: none;
+    padding: 10px;
   }
   #header {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   #header .logo { font-size: 28px; }
   #header .title { color: #e94560; font-size: 22px; font-weight: bold; }
   #score-panel {
     display: flex;
     justify-content: space-between;
-    width: 300px;
+    width: 296px;
     color: #ccc;
     font-size: 13px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
   #combo-text {
     color: #f0c040;
     font-size: 15px;
-    height: 20px;
-    margin-bottom: 4px;
+    font-weight: bold;
+    height: 22px;
+    margin-bottom: 6px;
+    text-align: center;
+    letter-spacing: 1px;
   }
   #game-board {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    gap: 2px;
+    grid-template-columns: repeat(8, 32px);
+    grid-template-rows: repeat(8, 32px);
+    gap: 3px;
     background: #1a1a2e;
-    padding: 5px;
+    padding: 6px;
     border-radius: 10px;
-    width: 300px;
-    height: 300px;
+    touch-action: none;
   }
   .cell {
+    width: 32px;
+    height: 32px;
     background: #252540;
-    border-radius: 3px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
+    transition: background 0.07s;
   }
-  .cell.filled {
-    background: #2e4a3e;
-    animation: pop 0.15s ease;
+  .cell.filled   { background: #2e4a3e; animation: pop 0.15s ease; }
+  .cell.preview  { background: #3a6a56; }
+  .cell.invalid  { background: #5a2a2a; }
+  @keyframes pop {
+    0%   { transform: scale(0.6); }
+    100% { transform: scale(1);   }
   }
-  @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
   #pieces-container {
     display: flex;
     gap: 10px;
-    margin-top: 12px;
+    margin-top: 14px;
     justify-content: center;
+    align-items: center;
+    height: 110px;
   }
-  .piece {
+  .piece-slot {
+    width: 90px;
+    height: 100px;
+    background: #1a1a2e;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    transition: border 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  .piece-slot.selected { border-color: #e94560; background: #25163a; }
+  .piece-slot:active { cursor: grabbing; }
+  .piece-slot.used { opacity: 0.25; cursor: default; }
+  .piece-grid {
     display: grid;
     gap: 2px;
-    background: #1a1a2e;
-    padding: 6px;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: border 0.2s;
-  }
-  .piece.selected {
-    border-color: #e94560;
   }
   .piece-cell {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     background: #252540;
     border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    box-sizing: border-box;
+    font-size: 13px;
   }
-  .piece-cell.active {
-    background: #2e4a3e;
+  .piece-cell.active { background: #2e4a3e; }
+  #hint {
+    color: #555;
+    font-size: 12px;
+    margin-top: 8px;
+    height: 16px;
+    text-align: center;
   }
   #game-over {
     display: none;
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85);
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
     flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 10;
     color: white;
   }
-  #game-over h2 { font-size: 28px; color: #e94560; margin-bottom: 8px; }
-  #game-over p { font-size: 16px; margin: 4px 0; }
+  #game-over h2  { font-size: 30px; color: #e94560; margin-bottom: 10px; }
+  #game-over p   { font-size: 16px; margin: 5px 0; }
   #game-over button {
     background: #e94560;
     color: white;
     border: none;
-    padding: 10px 25px;
+    padding: 10px 28px;
     font-size: 16px;
     border-radius: 8px;
-    margin: 6px;
+    margin: 8px 4px 0;
     cursor: pointer;
   }
   #game-over button.share { background: #25D366; }
@@ -137,7 +155,7 @@
 <div id="combo-text"></div>
 <div id="game-board"></div>
 <div id="pieces-container"></div>
-
+<div id="hint">Выбери фигуру, затем тапни на поле</div>
 <div id="game-over">
   <h2>жто не не!</h2>
   <p>Счёт: <span id="final-score">0</span></p>
@@ -147,70 +165,104 @@
 </div>
 
 <script>
-const SIZE = 8;
+const SIZE  = 8;
 const EMOJIS = ['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️','👾','🎃','🤖','👽'];
 const PHRASES = ['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','АБСУРД!','🤡','ОГОНЬ!'];
 
-// Фигуры как список координат блоков
 const SHAPES = [
-  [{x:0,y:0}],
-  [{x:0,y:0},{x:1,y:0}], [{x:0,y:0},{x:0,y:1}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0}], [{x:0,y:0},{x:0,y:1},{x:0,y:2}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0}], [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0},{x:4,y:0}], [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3},{x:0,y:4}],
-  [{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:1,y:1}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1}],
-  [{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2},{x:1,y:2}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1},{x:0,y:2},{x:1,y:2},{x:2,y:2}],
-  [{x:0,y:0},{x:1,y:0},{x:0,y:1}], [{x:0,y:0},{x:0,y:1},{x:1,y:1}],
-  [{x:0,y:0},{x:0,y:1},{x:1,y:0}], [{x:0,y:0},{x:1,y:0},{x:1,y:1}],
-  [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:2}], [{x:0,y:2},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
-  [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:1,y:2}], [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:0}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1}], [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:2,y:1}],
-  [{x:0,y:1},{x:1,y:1},{x:2,y:1},{x:2,y:0}], [{x:0,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1}],
-  [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
-  [{x:1,y:0},{x:1,y:1},{x:1,y:2},{x:0,y:0},{x:0,y:1},{x:0,y:2}],
-  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:0,y:2}], [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:1,y:1}],
-  [{x:0,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2}], [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
-  [{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1}], [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:2,y:1}],
-  [{x:0,y:0},{x:0,y:1},{x:1,y:1},{x:1,y:2}], [{x:1,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2}],
-  [{x:0,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1}],
-  [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:0},{x:1,y:1}], [{x:1,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2},{x:1,y:2}],
-  [{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:0,y:2}], [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
+  [[1]],
+  [[1,1]], [[1],[1]],
+  [[1,1,1]], [[1],[1],[1]],
+  [[1,1,1,1]], [[1],[1],[1],[1]],
+  [[1,1,1,1,1]], [[1],[1],[1],[1],[1]],
+  [[1,1],[1,1]],
+  [[1,1,1],[1,1,1]], [[1,1],[1,1],[1,1]],
+  [[1,1,1],[1,1,1],[1,1,1]],
+  [[1,0],[1,1]], [[0,1],[1,1]], [[1,1],[1,0]], [[1,1],[0,1]],
+  [[1,0],[1,0],[1,1]], [[0,1],[0,1],[1,1]],
+  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]],
+  [[1,1,1],[1,0,0]], [[1,1,1],[0,0,1]], [[0,0,1],[1,1,1]], [[1,0,0],[1,1,1]],
+  [[1,0,0],[1,0,0],[1,1,1]], [[0,0,1],[0,0,1],[1,1,1]],
+  [[1,1,1],[1,0,0],[1,0,0]], [[1,1,1],[0,0,1],[0,0,1]],
+  [[1,1,1],[0,1,0]], [[0,1,0],[1,1,1]], [[1,0],[1,1],[1,0]], [[0,1],[1,1],[0,1]],
+  [[0,1,1],[1,1,0]], [[1,1,0],[0,1,1]], [[1,0],[1,1],[0,1]], [[0,1],[1,1],[1,0]],
+  [[1,0,1],[1,1,1]], [[1,1],[1,1],[1,0]], [[1,1],[1,1],[0,1]],
+  [[1,1,0],[0,1,0],[0,1,0]], [[0,1,1],[0,1,0],[0,1,0]],
+  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]],
+  [[0,1,0],[0,1,0],[1,1,0]], [[0,1,0],[0,1,0],[0,1,1]],
 ];
 
+/* ─── TRIM SHAPE ────────────────────────────────── */
+function trimShape(shape) {
+  let minX = Infinity, minY = Infinity, maxX = -1, maxY = -1;
+  for (let y = 0; y < shape.length; y++) {
+    for (let x = 0; x < shape[y].length; x++) {
+      if (shape[y][x]) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  if (minX === Infinity) return [[]];
+  return shape
+    .slice(minY, maxY + 1)
+    .map(row => row.slice(minX, maxX + 1));
+}
+
+/* ── STATE ──────────────────────────────────────── */
 let board = [], score = 0, combo = 0;
 let bestScore = parseInt(localStorage.getItem('lolych_best') || '0');
-let pieces = [], selectedIndex = -1, gameOver = false;
+let pieces = [null, null, null];
+let selectedIndex = -1;
+let isGameOver = false;
 
-const boardEl = document.getElementById('game-board');
-const piecesEl = document.getElementById('pieces-container');
-const scoreEl = document.getElementById('score');
-const bestEl = document.getElementById('best');
-const comboEl = document.getElementById('combo-text');
-const gameOverEl = document.getElementById('game-over');
+/* ── ELEMENTS ───────────────────────────────────── */
+const boardEl      = document.getElementById('game-board');
+const piecesEl     = document.getElementById('pieces-container');
+const scoreEl      = document.getElementById('score');
+const bestEl       = document.getElementById('best');
+const comboEl      = document.getElementById('combo-text');
+const hintEl       = document.getElementById('hint');
+const gameOverEl   = document.getElementById('game-over');
 const finalScoreEl = document.getElementById('final-score');
-const finalBestEl = document.getElementById('final-best');
+const finalBestEl  = document.getElementById('final-best');
 
 bestEl.textContent = bestScore;
 
+/* ── INIT ───────────────────────────────────────── */
 function initGame() {
-  board = Array(SIZE).fill().map(() => Array(SIZE).fill(''));
-  score = 0; combo = 0; selectedIndex = -1; gameOver = false;
+  board         = Array(SIZE).fill(null).map(() => Array(SIZE).fill(''));
+  score         = 0;
+  combo         = 0;
+  selectedIndex = -1;
+  isGameOver    = false;
   gameOverEl.style.display = 'none';
+  comboEl.textContent      = '';
+  hintEl.textContent       = 'Выбери фигуру, затем тапни на поле';
   updateScore();
   renderBoard();
-  pieces = [];
-  while (pieces.length < 3) addPiece();
+  pieces = [null, null, null];
+  refillPieces();
   renderPieces();
 }
 
-function addPiece() {
-  const blocks = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-  const emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-  pieces.push({ blocks, emoji });
+function refillPieces() {
+  for (let i = 0; i < 3; i++) {
+    if (!pieces[i]) pieces[i] = randomPiece();
+  }
 }
 
+function randomPiece() {
+  const raw = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+  return {
+    shape: trimShape(raw),
+    emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)]
+  };
+}
+
+/* ── RENDER BOARD ───────────────────────────────── */
 function renderBoard() {
   boardEl.innerHTML = '';
   for (let y = 0; y < SIZE; y++) {
@@ -218,125 +270,262 @@ function renderBoard() {
       const cell = document.createElement('div');
       cell.className = 'cell' + (board[y][x] ? ' filled' : '');
       cell.textContent = board[y][x] || '';
-      cell.addEventListener('click', () => {
-        if (selectedIndex >= 0) placePiece(x, y);
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      cell.addEventListener('pointerenter', () => showPreview(x, y));
+      cell.addEventListener('pointerleave', clearPreview);
+      cell.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        if (selectedIndex >= 0 && pieces[selectedIndex] && !isGameOver) {
+          placePiece(x, y);
+          endDrag();
+        }
       });
       boardEl.appendChild(cell);
     }
   }
 }
 
-function renderPieces() {
-  piecesEl.innerHTML = '';
-  pieces.forEach((p, idx) => {
-    let maxX = 0, maxY = 0;
-    p.blocks.forEach(b => { maxX = Math.max(maxX, b.x); maxY = Math.max(maxY, b.y); });
-    const cols = maxX + 1, rows = maxY + 1;
-
-    const div = document.createElement('div');
-    div.className = 'piece' + (idx === selectedIndex ? ' selected' : '');
-    div.style.gridTemplateColumns = `repeat(${cols}, 24px)`;
-    div.style.gridTemplateRows = `repeat(${rows}, 24px)`;
-
-    const grid = Array(rows).fill().map(() => Array(cols).fill(false));
-    p.blocks.forEach(b => { grid[b.y][b.x] = true; });
-
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const c = document.createElement('div');
-        if (grid[y][x]) {
-          c.className = 'piece-cell active';
-          c.textContent = p.emoji;
-        } else {
-          c.className = 'piece-cell';
-          c.style.visibility = 'hidden';
-        }
-        div.appendChild(c);
-      }
-    }
-    div.addEventListener('click', () => {
-      selectedIndex = (selectedIndex === idx) ? -1 : idx;
-      renderPieces();
-    });
-    piecesEl.appendChild(div);
-  });
+function cellEl(x, y) {
+  return boardEl.children[y * SIZE + x];
 }
 
+function showPreview(px, py) {
+  clearPreview();
+  if (selectedIndex < 0 || !pieces[selectedIndex] || isGameOver) return;
+  const { shape } = pieces[selectedIndex];
+  const h = shape.length, w = shape[0].length;
+  if (px + w > SIZE || py + h > SIZE) {
+    markPreview(px, py, shape, 'invalid');
+    return;
+  }
+  let fits = true;
+  for (let sy = 0; sy < h && fits; sy++)
+    for (let sx = 0; sx < w && fits; sx++)
+      if (shape[sy][sx] && board[py+sy][px+sx]) fits = false;
+  markPreview(px, py, shape, fits ? 'preview' : 'invalid');
+}
+
+function markPreview(px, py, shape, cls) {
+  const h = shape.length, w = shape[0].length;
+  for (let sy = 0; sy < h; sy++) {
+    for (let sx = 0; sx < w; sx++) {
+      if (!shape[sy][sx]) continue;
+      const cx = px + sx, cy = py + sy;
+      if (cx >= SIZE || cy >= SIZE) continue;
+      const el = cellEl(cx, cy);
+      if (!el.classList.contains('filled')) el.classList.add(cls);
+    }
+  }
+}
+
+function clearPreview() {
+  for (const el of boardEl.children) {
+    el.classList.remove('preview', 'invalid');
+  }
+}
+
+/* ── RENDER PIECES ──────────────────────────────── */
+function renderPieces() {
+  piecesEl.innerHTML = '';
+  for (let idx = 0; idx < 3; idx++) {
+    const slot = document.createElement('div');
+    slot.className = 'piece-slot';
+
+    const p = pieces[idx];
+    if (!p) {
+      slot.classList.add('used');
+      piecesEl.appendChild(slot);
+      continue;
+    }
+
+    if (idx === selectedIndex) slot.classList.add('selected');
+
+    const grid = document.createElement('div');
+    grid.className = 'piece-grid';
+    const shape = p.shape;
+    grid.style.gridTemplateColumns = `repeat(${shape[0].length}, 22px)`;
+    grid.style.gridTemplateRows    = `repeat(${shape.length}, 22px)`;
+
+    for (let sy = 0; sy < shape.length; sy++) {
+      for (let sx = 0; sx < shape[0].length; sx++) {
+        const c = document.createElement('div');
+        c.className = 'piece-cell' + (shape[sy][sx] ? ' active' : '');
+        if (shape[sy][sx]) c.textContent = p.emoji;
+        grid.appendChild(c);
+      }
+    }
+
+    slot.appendChild(grid);
+    slot.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      startDrag(idx, e);
+    });
+    piecesEl.appendChild(slot);
+  }
+}
+
+/* ── DRAG & DROP ────────────────────────────────── */
+let dragPieceIndex = -1;
+let dragClone = null;
+let dragOffsetX = 0, dragOffsetY = 0;
+
+function startDrag(idx, e) {
+  if (!pieces[idx] || isGameOver) return;
+  selectedIndex = idx;
+  dragPieceIndex = idx;
+  renderPieces();
+
+  // создаём клон для перетаскивания
+  const slot = piecesEl.children[idx];
+  const rect = slot.getBoundingClientRect();
+  dragOffsetX = e.clientX - rect.left;
+  dragOffsetY = e.clientY - rect.top;
+
+  dragClone = slot.cloneNode(true);
+  dragClone.style.position = 'fixed';
+  dragClone.style.left = (e.clientX - dragOffsetX) + 'px';
+  dragClone.style.top = (e.clientY - dragOffsetY) + 'px';
+  dragClone.style.zIndex = '999';
+  dragClone.style.opacity = '0.85';
+  dragClone.style.pointerEvents = 'none';
+  dragClone.style.transform = 'scale(1.1)';
+  document.body.appendChild(dragClone);
+
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragUp);
+}
+
+function onDragMove(e) {
+  if (!dragClone) return;
+  dragClone.style.left = (e.clientX - dragOffsetX) + 'px';
+  dragClone.style.top = (e.clientY - dragOffsetY) + 'px';
+
+  // подсвечиваем возможное место на поле
+  const boardRect = boardEl.getBoundingClientRect();
+  const cellSize = 35; // 32px + gap 3px
+  const relX = e.clientX - boardRect.left;
+  const relY = e.clientY - boardRect.top;
+  const cellX = Math.floor(relX / cellSize);
+  const cellY = Math.floor(relY / cellSize);
+  clearPreview();
+  if (cellX >= 0 && cellX < SIZE && cellY >= 0 && cellY < SIZE) {
+    showPreview(cellX, cellY);
+  }
+}
+
+function onDragUp(e) {
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragUp);
+  if (dragClone) {
+    document.body.removeChild(dragClone);
+    dragClone = null;
+  }
+
+  // ищем ближайшую клетку
+  const boardRect = boardEl.getBoundingClientRect();
+  const cellSize = 35;
+  const relX = e.clientX - boardRect.left;
+  const relY = e.clientY - boardRect.top;
+  const cellX = Math.floor(relX / cellSize);
+  const cellY = Math.floor(relY / cellSize);
+
+  if (cellX >= 0 && cellX < SIZE && cellY >= 0 && cellY < SIZE) {
+    if (selectedIndex >= 0 && pieces[selectedIndex] && !isGameOver) {
+      placePiece(cellX, cellY);
+    }
+  }
+  endDrag();
+}
+
+function endDrag() {
+  clearPreview();
+  dragPieceIndex = -1;
+  // не сбрасываем selectedIndex здесь, он сбрасывается в placePiece или остаётся
+}
+
+/* ── PLACE PIECE ────────────────────────────────── */
 function placePiece(px, py) {
-  if (selectedIndex < 0 || gameOver) return;
-  const { blocks, emoji } = pieces[selectedIndex];
+  if (selectedIndex < 0 || !pieces[selectedIndex] || isGameOver) return;
+  const { shape, emoji } = pieces[selectedIndex];
+  const h = shape.length, w = shape[0].length;
 
-  for (const b of blocks) {
-    const x = px + b.x, y = py + b.y;
-    if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || board[y][x]) return;
-  }
+  if (px + w > SIZE || py + h > SIZE) return;
 
-  for (const b of blocks) {
-    board[py + b.y][px + b.x] = emoji;
-  }
+  for (let sy = 0; sy < h; sy++)
+    for (let sx = 0; sx < w; sx++)
+      if (shape[sy][sx] && board[py+sy][px+sx]) return;
 
-  score += 1; combo = 0;
-  pieces.splice(selectedIndex, 1);
+  let cells = 0;
+  for (let sy = 0; sy < h; sy++)
+    for (let sx = 0; sx < w; sx++)
+      if (shape[sy][sx]) { board[py+sy][px+sx] = emoji; cells++; }
+
+  score += cells;
+  pieces[selectedIndex] = null;
   selectedIndex = -1;
+  hintEl.textContent = 'Выбери фигуру, затем тапни на поле';
 
   let cleared = 0;
-  for (let y = 0; y < SIZE; y++) {
-    if (board[y].every(c => c !== '')) { board[y].fill(''); cleared++; }
-  }
-  for (let x = 0; x < SIZE; x++) {
-    if (board.every(r => r[x] !== '')) { for (let y = 0; y < SIZE; y++) board[y][x] = ''; cleared++; }
-  }
+  const rowsToClear = [], colsToClear = [];
+  for (let y = 0; y < SIZE; y++)
+    if (board[y].every(c => c)) rowsToClear.push(y);
+  for (let x = 0; x < SIZE; x++)
+    if (board.every(r => r[x])) colsToClear.push(x);
+  cleared = rowsToClear.length + colsToClear.length;
 
   if (cleared > 0) {
     combo++;
     score += cleared * 10 * combo;
     comboEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-    setTimeout(() => comboEl.textContent = '', 1500);
+    setTimeout(() => { comboEl.textContent = ''; }, 1600);
+  } else {
+    combo = 0;
   }
+
+  for (const y of rowsToClear) board[y].fill('');
+  for (const x of colsToClear) for (let y = 0; y < SIZE; y++) board[y][x] = '';
 
   updateScore();
   renderBoard();
-  while (pieces.length < 3) addPiece();
+  if (pieces.every(p => !p)) refillPieces();
   renderPieces();
   if (checkGameOver()) endGame();
 }
 
 function checkGameOver() {
-  for (const p of pieces) {
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
+  return pieces.every(p => {
+    if (!p) return true;
+    const h = p.shape.length, w = p.shape[0].length;
+    for (let y = 0; y <= SIZE - h; y++)
+      for (let x = 0; x <= SIZE - w; x++) {
         let fits = true;
-        for (const b of p.blocks) {
-          const bx = x + b.x, by = y + b.y;
-          if (bx < 0 || bx >= SIZE || by < 0 || by >= SIZE || board[by][bx]) {
-            fits = false; break;
-          }
-        }
+        for (let sy = 0; sy < h && fits; sy++)
+          for (let sx = 0; sx < w && fits; sx++)
+            if (p.shape[sy][sx] && board[y+sy][x+sx]) fits = false;
         if (fits) return false;
       }
-    }
-  }
-  return true;
+    return true;
+  });
 }
 
 function endGame() {
-  gameOver = true;
+  isGameOver = true;
   if (score > bestScore) {
     bestScore = score;
     localStorage.setItem('lolych_best', bestScore);
     bestEl.textContent = bestScore;
   }
   finalScoreEl.textContent = score;
-  finalBestEl.textContent = bestScore;
+  finalBestEl.textContent  = bestScore;
   gameOverEl.style.display = 'flex';
 }
 
 function updateScore() { scoreEl.textContent = score; }
-
-function restart() { pieces = []; initGame(); }
+function restart() { initGame(); }
 
 function share() {
-  const text = `🃏 Лолыч Бласт! Мой рекорд: ${score} (лучший: ${bestScore}). Играй: @Lolych_bot`;
+  const text = `🃏 Лолыч Бласт! Мой счёт: ${score} (рекорд: ${bestScore}). Играй: @Lolych_bot`;
   window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(text)}`);
 }
 
