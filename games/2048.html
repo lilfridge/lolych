@@ -11,36 +11,36 @@ body{
   justify-content:center;min-height:100vh;font-family:Arial,sans-serif;
   touch-action:manipulation;user-select:none;
 }
-#header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+#header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 #header .logo{font-size:28px}
 #header .title{color:#e94560;font-size:22px;font-weight:bold}
-#goal{color:#ffd93d;font-size:12px;margin-bottom:8px;text-align:center}
-#scores{display:flex;gap:16px;margin-bottom:8px;color:#ccc;font-size:13px}
+#goal{color:#ffd93d;font-size:12px;margin-bottom:6px;text-align:center}
+#scores{display:flex;gap:14px;margin-bottom:6px;color:#ccc;font-size:13px}
 #achieve{color:#f0c040;font-size:16px;font-weight:bold;height:22px;text-align:center;margin-bottom:4px}
 #board{
-  display:grid;grid-template-columns:repeat(4,65px);grid-template-rows:repeat(4,65px);
+  display:grid;grid-template-columns:repeat(4,68px);grid-template-rows:repeat(4,68px);
   gap:6px;background:#1a1a2e;padding:8px;border-radius:10px;
 }
 .tile{
-  width:65px;height:65px;background:#252540;border-radius:8px;
+  width:68px;height:68px;background:#252540;border-radius:10px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  transition:all .15s;color:#fff;
+  transition:all .12s ease;color:#fff;position:relative;
 }
-.tile .emoji{font-size:24px}
-.tile .num{font-size:11px;color:#aaa}
+.tile .num{font-size:18px;font-weight:bold;line-height:1}
+.tile .emoji{font-size:22px;line-height:1}
 .tile[data-v="2"]{background:#2e4a3e}.tile[data-v="4"]{background:#3a6a56}
 .tile[data-v="8"]{background:#4a8a6e}.tile[data-v="16"]{background:#5aaa86}
 .tile[data-v="32"]{background:#6aca9e}.tile[data-v="64"]{background:#e94560}
 .tile[data-v="128"]{background:#ff6b6b}.tile[data-v="256"]{background:#ffd93d;color:#000}
 .tile[data-v="512"]{background:#6c5ce7}.tile[data-v="1024"]{background:#00cec9}
 .tile[data-v="2048"]{background:#ff9ff3}
-.tile.new{animation:pop .25s}
-.tile.merged{animation:merge .2s}
-@keyframes pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
-@keyframes merge{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+.tile.pop{animation:popIn .25s ease}
+.tile.merge{animation:mergeBounce .2s ease}
+@keyframes popIn{0%{transform:scale(0);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes mergeBounce{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
 #btns{display:grid;grid-template-columns:55px 55px 55px;grid-template-rows:55px 55px;gap:5px;margin-top:10px}
-#btns button{background:#252540;color:#fff;border:none;font-size:22px;border-radius:8px;cursor:pointer}
-#btns button:active{background:#3a3a5a}
+#btns button{background:#252540;color:#fff;border:none;font-size:22px;border-radius:8px;cursor:pointer;transition:background .1s}
+#btns button:active{background:#e94560}
 #up{grid-column:2;grid-row:1}
 #left{grid-column:1;grid-row:2}
 #right{grid-column:3;grid-row:2}
@@ -54,6 +54,7 @@ body{
 #over p{font-size:16px;margin:5px 0}
 #over button{background:#e94560;color:#fff;border:none;padding:10px 28px;font-size:16px;border-radius:8px;margin:8px 4px 0;cursor:pointer}
 #over .share{background:#25D366}
+#undoBtn{background:#252540;color:#ccc;border:none;padding:6px 14px;font-size:12px;border-radius:6px;cursor:pointer;margin-top:6px}
 </style>
 </head>
 <body>
@@ -61,8 +62,8 @@ body{
 <div id="goal">🎯 Собери 🃏 (2048)!</div>
 <div id="scores">
   <span>🏆 <b id="score">0</b></span>
-  <span>📦 Лучший блок: <b id="bestTile">-</b></span>
-  <span>🔥 Рекорд: <b id="best">0</b></span>
+  <span>📦 <b id="bestTile">-</b></span>
+  <span>🔥 <b id="best">0</b></span>
 </div>
 <div id="achieve"></div>
 <div id="board"></div>
@@ -70,6 +71,7 @@ body{
   <button id="up">▲</button><button id="left">◀</button>
   <button id="right">▶</button><button id="down">▼</button>
 </div>
+<button id="undoBtn" onclick="undo()">↩ Отменить ход</button>
 <div id="hint">Свайпай или жми кнопки</div>
 <div id="over">
   <h2>жто не не!</h2>
@@ -90,6 +92,11 @@ const tileEl=document.getElementById('bestTile'),achEl=document.getElementById('
 const overEl=document.getElementById('over'),fsEl=document.getElementById('fs'),fbEl=document.getElementById('fb'),fb2El=document.getElementById('fb2');
 bestEl.textContent=best;
 
+// Звуки через Web Audio API
+function beep(freq,dur=.08,vol=.08){
+  try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=freq;g.gain.value=vol;o.start();o.stop(a.currentTime+dur)}catch(e){}
+}
+
 function init(){
   board=Array(4).fill().map(()=>Array(4).fill(0));
   score=0;bestBlock=0;dead=false;history=[];
@@ -104,27 +111,26 @@ function add(){
 
 function draw(){
   B.innerHTML='';
-  board.forEach(r=>r.forEach(v=>{
-    const t=document.createElement('div');t.className='tile'+(v?' new':'');
+  board.forEach((r,y)=>r.forEach((v,x)=>{
+    const t=document.createElement('div');t.className='tile';
     if(v){
-      t.innerHTML=`<span class="emoji">${EMO[Math.min(v-1,EMO.length-1)]}</span><span class="num">${Math.pow(2,v)}</span>`;
+      t.innerHTML=`<span class="num">${Math.pow(2,v)}</span><span class="emoji">${EMO[Math.min(v-1,EMO.length-1)]}</span>`;
       t.setAttribute('data-v',Math.pow(2,v));
     }
     B.appendChild(t);
   }));
-  setTimeout(()=>document.querySelectorAll('.new').forEach(e=>e.classList.remove('new')),250);
 }
 
 function move(dir){
   if(dead)return;
-  history.push(JSON.stringify(board));
-  let moved=false;const old=JSON.stringify(board);
+  history.push({board:JSON.stringify(board),score,bestBlock});
+  let moved=false,merged=false;const old=JSON.stringify(board);
   for(let r=0;r<dir;r++)board=board[0].map((_,i)=>board.map(row=>row[i]).reverse());
   for(let y=0;y<4;y++){
     let row=board[y].filter(v=>v);
     for(let x=0;x<row.length-1;x++){
       if(row[x]===row[x+1]){
-        row[x]++;const val=Math.pow(2,row[x]);score+=val;
+        row[x]++;const val=Math.pow(2,row[x]);score+=val;merged=true;
         if(row[x]>bestBlock){bestBlock=row[x];tileEl.textContent=EMO[Math.min(bestBlock-1,EMO.length-1)]+' '+Math.pow(2,bestBlock)}
         if(ACH[val]){achEl.textContent=ACH[val];setTimeout(()=>achEl.textContent='',2000)}
         row.splice(x+1,1);row.push(0);moved=true;
@@ -133,13 +139,15 @@ function move(dir){
     while(row.length<4)row.push(0);board[y]=row;
   }
   for(let r=0;r<(4-dir)%4;r++)board=board[0].map((_,i)=>board.map(row=>row[i]).reverse());
-  if(JSON.stringify(board)!==old){add();draw();scEl.textContent=score}
+  if(JSON.stringify(board)!==old){add();draw();scEl.textContent=score;beep(merged?600:300,merged?.12:.06,merged?.1:.05)}
   if(checkEnd())end();
 }
 
 function undo(){
   if(dead||history.length===0)return;
-  board=JSON.parse(history.pop());draw();
+  const prev=history.pop();board=JSON.parse(prev.board);score=prev.score;bestBlock=prev.bestBlock;
+  scEl.textContent=score;tileEl.textContent=bestBlock?EMO[Math.min(bestBlock-1,EMO.length-1)]+' '+Math.pow(2,bestBlock):'-';
+  dead=false;overEl.style.display='none';draw();beep(200,.05,.04);
 }
 
 function checkEnd(){
@@ -155,10 +163,10 @@ function end(){
   dead=true;if(score>best){best=score;localStorage.setItem('lolych2048_best',best);bestEl.textContent=best}
   fsEl.textContent=score;fbEl.textContent=best;
   fb2El.textContent=bestBlock?EMO[Math.min(bestBlock-1,EMO.length-1)]+' '+Math.pow(2,bestBlock):'-';
-  overEl.style.display='flex';
+  overEl.style.display='flex';beep(150,.3,.12);
 }
 
-function restart(){init()}
+function restart(){init();beep(400,.06,.05)}
 function share(){
   const t=`🎮 2048 Лолыч! Мой счёт: ${score} (рекорд: ${best}). Играй: @Lolych_bot`;
   window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(t)}`);
