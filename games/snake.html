@@ -1,1 +1,42 @@
-404: Not Found
+<!DOCTYPE html>
+<html>
+<head>
+<title>Змейка</title>
+<style>
+body{margin:0;background:#000;display:flex;justify-content:center;align-items:center;height:100vh}
+canvas{background:#111}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const grid=20;
+const w=400,h=400;
+canvas.width=w;canvas.height=h;
+let snake=[{x:5,y:5}],food={x:10,y:10},dx=1,dy=0,score=0;
+function draw(){
+ctx.fillStyle='#111';ctx.fillRect(0,0,w,h);
+ctx.fillStyle='#0f0';
+snake.forEach(s=>ctx.fillRect(s.x*grid,s.y*grid,grid-2,grid-2));
+ctx.fillStyle='#f00';ctx.fillRect(food.x*grid,food.y*grid,grid-2,grid-2);
+ctx.fillStyle='#fff';ctx.font='16px Arial';ctx.fillText('Счёт: '+score,10,20);
+}
+function update(){
+const head={x:snake[0].x+dx,y:snake[0].y+dy};
+if(head.x<0||head.x>=w/grid||head.y<0||head.y>=h/grid||snake.some(s=>s.x===head.x&&s.y===head.y)){alert('Игра окончена! Счёт: '+score);snake=[{x:5,y:5}];dx=1;dy=0;score=0;return}
+snake.unshift(head);
+if(head.x===food.x&&head.y===food.y){score++;food={x:Math.floor(Math.random()*w/grid),y:Math.floor(Math.random()*h/grid)}}
+else{snake.pop()}
+}
+setInterval(()=>{update();draw()},100);
+document.addEventListener('keydown',e=>{
+if(e.key==='ArrowUp'&&dy===0){dx=0;dy=-1}
+if(e.key==='ArrowDown'&&dy===0){dx=0;dy=1}
+if(e.key==='ArrowLeft'&&dx===0){dx=-1;dy=0}
+if(e.key==='ArrowRight'&&dx===0){dx=1;dy=0}
+});
+</script>
+</body>
+</html>
