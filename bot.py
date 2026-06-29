@@ -14,7 +14,7 @@ except: pass
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import markovify
-import random   
+import random
 import threading
 import json
 import os
@@ -116,9 +116,13 @@ KOGDA_ANSWERS = [
 # ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
 TEMPLATES_DIR = "templates"
 PHOTO_TEMPLATES = {
-    "IMG_4835.jpeg": {
-        "photos": [{"x": 58, "y": 242, "w": 846, "h": 965}],
-        "texts": [{"x": 67, "y": 1589, "w": 502, "h": 87}],
+    "IMG_4862.jpeg": {
+        "photos": [{"x": 59, "y": 246, "w": 847, "h": 964}],
+        "texts": [],
+    },
+    "IMG_4864.jpeg": {
+        "photos": [{"x": 608, "y": 650, "w": 577, "h": 384}],
+        "texts": [],
     },
     "IMG_4837.jpeg": {
         "photos": [{"x": 348, "y": 21, "w": 323, "h": 323}],
@@ -176,17 +180,13 @@ PHOTO_TEMPLATES = {
         "photos": [{"x": 0, "y": 481, "w": 585, "h": 423}],
         "texts": [],
     },
-    "IMG_4853.jpg": {
-        "photos": [{"x": 612, "y": 666, "w": 572, "h": 381}],
-        "texts": [{"x": 612, "y": 1080, "w": 572, "h": 50}],
-    },
     "IMG_4856.jpg": {
         "photos": [{"x": 79, "y": 369, "w": 1000, "h": 687}],
         "texts": [],
     },
     "IMG_4857.jpg": {
         "photos": [{"x": 54, "y": 200, "w": 1109, "h": 1109}],
-        "texts": [{"x": 95, "y": 84, "w": 1016, "h": 104}],
+        "texts": [],
     },
     "IMG_4858.jpg": {
         "photos": [{"x": 430, "y": 450, "w": 441, "h": 294}],
@@ -410,7 +410,6 @@ def make_photo_meme(chat_id):
 
     try:
         template = Image.open(template_path).convert("RGBA")
-        draw = ImageDraw.Draw(template)
 
         for slot in template_data.get("photos", []):
             fid = random.choice(photos)
@@ -419,79 +418,6 @@ def make_photo_meme(chat_id):
             photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
             photo = photo.resize((slot["w"], slot["h"]), Image.LANCZOS)
             template.paste(photo, (slot["x"], slot["y"]), photo)
-
-        for text_slot in template_data.get("texts", []):
-            txt = absurd_word_salad(chat_id, length=random.randint(2, 5))
-            tx, ty, tw, th = text_slot["x"], text_slot["y"], text_slot["w"], text_slot["h"]
-            
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            font_paths = [
-                os.path.join(base_dir, "DejaVuSans.ttf"),
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            ]
-            
-            # ОТЛАДКА
-            log.info(f"[FONT] base_dir={base_dir}")
-            for fp in font_paths:
-                log.info(f"[FONT] проверяю {fp}: exists={os.path.isfile(fp)}")
-            
-            font_size = th
-            font = None
-            for fp in font_paths:
-                if os.path.isfile(fp):
-                    try:
-                        font = ImageFont.truetype(fp, font_size)
-                        log.info(f"[FONT] загружен {fp} размер {font_size}")
-                        break
-                    except Exception as e:
-                        log.error(f"[FONT] ошибка {fp}: {e}")
-            
-            if font is None:
-                log.error(f"[FONT] ШРИФТ НЕ НАЙДЕН! Использую дефолтный")
-                font = ImageFont.load_default()
-                font_size = 20
-            
-            # Перенос текста
-            lines = []
-            words = txt.split()
-            current = ""
-            for word in words:
-                test = (current + " " + word).strip()
-                try:
-                    if font.getlength(test) <= tw:
-                        current = test
-                    else:
-                        if current: lines.append(current)
-                        current = word
-                except:
-                    if font.getsize(test)[0] <= tw:
-                        current = test
-                    else:
-                        if current: lines.append(current)
-                        current = word
-            if current: lines.append(current)
-            if not lines: lines = [txt]
-            
-            # Рисуем текст
-            line_h = font_size + 4
-            total_h = line_h * len(lines)
-            y = ty + (th - total_h) // 2
-            
-            for line in lines:
-                try:
-                    text_w = font.getlength(line)
-                except:
-                    text_w = font.getsize(line)[0]
-                x = tx + (tw - text_w) // 2
-                
-                # Обводка
-                for dx in range(-2, 3):
-                    for dy in range(-2, 3):
-                        if dx != 0 or dy != 0:
-                            draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0, 255))
-                # Белый текст
-                draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
-                y += line_h
 
         out = io.BytesIO()
         template.convert("RGB").save(out, format="JPEG", quality=90)
@@ -749,7 +675,7 @@ def handle_sticker(message):
         fid = random.choice(_chat_stickers)
         bot.send_sticker(cid, fid)
 
-# ─── Старт ──────────────────────────────────────────────────────────────────
+# ─── Команды ──────────────────────────────────────────────────────────────────
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
@@ -855,24 +781,17 @@ def handle_buttons(call):
         txt, markup = activity_menu(cid)
         bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     elif call.data == "meme":
-        bot.edit_message_text("🎨 Рисую мем...", cid, call.message.message_id)
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
-        bot.edit_message_text("🖼 Делаю демотиватор...", cid, call.message.message_id)
         if not send_random_dem(bot, cid): bot.send_message(cid, "нет фото")
-    elif call.data == "mix":
-        bot.edit_message_text("💬 Миксую...", cid, call.message.message_id)
-        bot.send_message(cid, mix_messages(cid))
+    elif call.data == "mix": bot.send_message(cid, mix_messages(cid))
     elif call.data == "voice":
-        bot.edit_message_text("🎙 Озвучиваю...", cid, call.message.message_id)
         v = generate_voice(absurd_word_salad(cid))
         if v: bot.send_voice(cid, v)
         else: bot.send_message(cid, "не смог")
     elif call.data == "stick":
-        bot.edit_message_text("🎭 Клею стикер...", cid, call.message.message_id)
         if not send_sticker_photo(bot, cid): bot.send_message(cid, "нет фото")
     elif call.data == "photomeme":
-        bot.edit_message_text("📸 Создаю фотомем...", cid, call.message.message_id)
         out = make_photo_meme(cid)
         if out: bot.send_photo(cid, out)
         else: bot.send_message(cid, "нет фото или шаблонов")
@@ -979,7 +898,7 @@ def handle_photo(message):
     elif random.random() < extras[3]:
         bot.reply_to(message, random.choice([absurd_word_salad(cid, length=random.randint(1,10)), random.choice(EMOJI)*random.randint(1,2), "это чё такое?", "🤔"]))
 
-log.info("Лолыч проснулся!")
 import os as _os2
 log.info(f"[KILL] PID: {_os2.getpid()}")
+log.info("Лолыч проснулся!")
 bot.polling(none_stop=True, timeout=60, long_polling_timeout=30)
