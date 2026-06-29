@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Лолыч-Бласт</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial;overflow:hidden}
+#score{color:#fff;font-size:20px;margin:10px 0}
+#game{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:#16213e;padding:4px;border-radius:8px;width:min(90vw,400px);height:min(90vw,400px)}
+.cell{background:#0f3460;border-radius:3px;aspect-ratio:1}
+.cell.filled{background:#e94560;animation:pop 0.2s}
+.cell.cleared{background:#00ff88;animation:clear 0.3s}
+#pieces{display:flex;gap:10px;margin:15px 0;justify-content:center;flex-wrap:wrap}
+.piece{display:grid;gap:2px;background:#16213e;padding:4px;border-radius:6px;cursor:pointer;touch-action:none}
+.piece .cell{width:28px;height:28px}
+#gameover{color:#fff;text-align:center;display:none}
+#gameover button{background:#e94560;color:#fff;border:none;padding:10px 30px;font-size:18px;border-radius:8px;margin-top:10px;cursor:pointer}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+@keyframes clear{0%{background:#00ff88}100%{background:#0f3460}}
+</style>
+</head>
+<body>
+<div id="score">🏗 Лолыч-Бласт | Счёт: <span id="sc">0</span></div>
+<div id="game"></div>
+<div id="pieces"></div>
+<div id="gameover">
+<h2>жто не не!</h2>
+<p>Счёт: <span id="finalscore">0</span></p>
+<button onclick="restart()">🔄 Ещё раз</button>
+</div>
+<script>
+const SIZE=8;
+let board=[],score=0,selectedPiece=null,gameOver=false;
+const EMOJIS=['💀','🗿','🤡','🔥','😭','👀','💩','🧠'];
+
+function createBoard(){
+board=Array(SIZE).fill().map(()=>Array(SIZE).fill(0));
+score=0;gameOver=false;
+document.getElementById('gameover').style.display='none';
+document.getElementById('sc').textContent=score;
+renderBoard();
+generatePieces();
+}
+
+function renderBoard(){
+const g=document.getElementById('game');
+g.innerHTML='';
+for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+const cell=document.createElement('div');
+cell.className='cell'+(board[y][x]?' filled':'');
+cell.dataset.x=x;cell.dataset.y=y;
+cell.addEventListener('click',()=>placePiece(x,y));
+g.appendChild(cell);
+}
+}
+
+const PIECES=[
+[[1]],[[1,1]],[[1],[1]],[[1,1,1]],[[1],[1],[1]],
+[[1,1],[1,0]],[[1,1],[0,1]],[[1,0],[1,1]],
+[[1,1],[1,1]],[[1,1,1],[1,0,0]]
+];
+
+function generatePieces(){
+const pdiv=document.getElementById('pieces');
+pdiv.innerHTML='';
+for(let i=0;i<3;i++){
+const shape=PIECES[Math.floor(Math.random()*PIECES.length)];
+const div=document.createElement('div');
+div.className='piece';
+div.style.gridTemplateColumns=`repeat(${shape[0].length},1fr)`;
+const emoji=EMOJIS[Math.floor(Math.random()*EMOJIS.length)];
+for(let y=0;y<shape.length;y++)for(let x=0;x<shape[0].length;x++){
+const c=document.createElement('div');
+c.className='cell'+(shape[y][x]?' filled':'');
+if(shape[y][x])c.textContent=emoji;
+div.appendChild(c);
+}
+div.addEventListener('click',()=>{selectedPiece={shape,emoji};document.querySelectorAll('.piece').forEach(p=>p.style.border='');div.style.border='2px solid #e94560'});
+pdiv.appendChild(div);
+}
+}
+
+function placePiece(px,py){
+if(!selectedPiece||gameOver)return;
+const {shape,emoji}=selectedPiece;
+const h=shape.length,w=shape[0].length;
+if(px+w>SIZE||py+h>SIZE)return;
+for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(shape[y][x]&&board[py+y][px+x])return;
+for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(shape[y][x])board[py+y][px+x]=emoji;
+renderBoard();
+checkLines();
+selectedPiece=null;
+if(!isGameOver())generatePieces();
+else endGame();
+}
+
+function checkLines(){
+let cleared=0;
+for(let y=0;y<SIZE;y++)if(board[y].every(c=>c)){board[y].fill(0);cleared++}
+for(let x=0;x<SIZE;x++)if(board.every(r=>r[x])){for(let y=0;y<SIZE;y++)board[y][x]=0;cleared++}
+score+=cleared*10;
+document.getElementById('sc').textContent=score;
+if(cleared)renderBoard();
+}
+
+function isGameOver(){
+for(let i=0;i<3;i++){
+const piece=document.querySelectorAll('.piece')[i];
+if(!piece)continue;
+}
+for(const shape of PIECES){
+const h=shape.length,w=shape[0].length;
+for(let y=0;y<=SIZE-h;y++)for(let x=0;x<=SIZE-w;x++){
+let fits=true;
+for(let sy=0;sy<h&&fits;sy++)for(let sx=0;sx<w&&fits;sx++)if(shape[sy][sx]&&board[y+sy][x+sx])fits=false;
+if(fits)return false;
+}
+}
+return true;
+}
+
+function endGame(){
+gameOver=true;
+document.getElementById('gameover').style.display='block';
+document.getElementById('finalscore').textContent=score;
+}
+
+function restart(){createBoard()}
+createBoard();
+</script>
+</body>
+</html>
