@@ -12,7 +12,7 @@ try:
 except: pass
 
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle, InputTextMessageContent
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import markovify
 import random
 import threading
@@ -36,6 +36,12 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
 DONATE_URL = "https://dalink.to/trolololych"
 ADMIN_ID = 757006911
+
+GAME_2048 = {
+    "name": "🔢 Лолыч 2048",
+    "url": "https://lilfridge.github.io/lolych/games/2048.html",
+    "desc": "Собери 2048"
+}
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -620,9 +626,27 @@ def main_menu(cid):
 🖼 Фото: {len(photos)} · 🎨 Стикеров: {len(_chat_stickers)}"""
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
+    markup.add(
+        InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
+        InlineKeyboardButton("🎮 Игры", callback_data="menu_games")
+    )
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
     markup.add(InlineKeyboardButton("☕ Донат", url=DONATE_URL))
+    return txt, markup
+
+def games_menu():
+    txt = f"""🕹️ <b>Мини-игры</b>
+
+🎮 Играй прямо в Telegram!
+
+🔢 <b>{GAME_2048['name']}</b>
+📝 {GAME_2048['desc']}
+
+👆 Нажми на кнопку ниже, чтобы запустить игру во встроенном браузере Telegram."""
+    
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton(f"🎮 Играть в {GAME_2048['name']}", url=GAME_2048["url"]))
+    markup.add(InlineKeyboardButton("⬅ Назад в меню", callback_data="menu_back"))
     return txt, markup
 
 def fun_menu(page=1):
@@ -695,46 +719,6 @@ def clear_menu():
     return txt, markup
 
 # ─── Приветствие ─────────────────────────────────────────────────────────────
-@bot.inline_handler(lambda query: len(query.query) > 0)
-def inline_query(query):
-    text = query.query.strip()
-    cid = query.from_user.id  # используем ID пользователя как chat_id
-    
-    results = []
-    
-    # 1. Мем
-    words = _chat_words(cid)
-    if words:
-        meme_text = absurd_word_salad(cid, length=random.randint(2, 5))
-        results.append(
-            InlineQueryResultArticle(
-                id="1", title="🖼 Мем", description=f"Создать мем: {meme_text[:50]}",
-                input_message_content=InputTextMessageContent("/meme"),
-                thumbnail_url="https://i.postimg.cc/qMz4QKYj/IMG-4826-2.png"
-            )
-        )
-    
-    # 2. Гифка
-    results.append(
-        InlineQueryResultArticle(
-            id="2", title="🎬 Гифка", description=f"Найти гифку: {text}",
-            input_message_content=InputTextMessageContent(f"/gif {text}"),
-            thumbnail_url="https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif"
-        )
-    )
-    
-    # 3. Микс
-    if words:
-        mixed = mix_messages(cid)
-        results.append(
-            InlineQueryResultArticle(
-                id="3", title="💬 Микс", description=f"Микс фраз: {mixed[:50]}",
-                input_message_content=InputTextMessageContent(mixed)
-            )
-        )
-    
-    bot.answer_inline_query(query.id, results[:10], cache_time=1)
-
 @bot.message_handler(content_types=["new_chat_members"])
 def handle_new_member(message):
     for member in message.new_chat_members:
@@ -782,6 +766,12 @@ def cmd_fun(message):
 def cmd_params(message):
     cid = message.chat.id
     txt, markup = params_menu(cid)
+    bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
+
+@bot.message_handler(commands=["games"])
+def cmd_games(message):
+    cid = message.chat.id
+    txt, markup = games_menu()
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
 @bot.message_handler(commands=["admin"])
@@ -839,6 +829,7 @@ def handle_buttons(call):
         "menu_fun_page1": fun_menu(1),
         "menu_params": params_menu(cid),
         "menu_activity": activity_menu(cid),
+        "menu_games": games_menu(),
     }
     
     if call.data in nav:
