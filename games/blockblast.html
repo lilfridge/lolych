@@ -80,21 +80,21 @@
     height: 110px;
   }
   .piece-slot {
-    width: 90px;
-    height: 100px;
     background: #1a1a2e;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 2px solid transparent;
     display: flex;
-    align-items: center;
     justify-content: center;
-    cursor: grab;
-    transition: border 0.15s, background 0.15s;
+    align-items: center;
+    padding: 8px;
+    min-width: 82px;
+    min-height: 82px;
+    transition: 0.15s;
     flex-shrink: 0;
+    position: relative;
   }
-  .piece-slot.selected { border-color: #e94560; background: #25163a; }
-  .piece-slot:active { cursor: grabbing; }
-  .piece-slot.used { opacity: 0.25; cursor: default; }
+  .piece-slot.selected { border-color: #e94560; }
+  .piece-slot.used { opacity: 0.25; }
   .piece-grid {
     display: grid;
     gap: 2px;
@@ -103,13 +103,22 @@
     width: 22px;
     height: 22px;
     background: #252540;
-    border-radius: 3px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
   }
   .piece-cell.active { background: #2e4a3e; }
+  .dragging-piece {
+    position: fixed;
+    z-index: 99999;
+    pointer-events: none;
+    transform: scale(1.18);
+    transition: transform 0.05s;
+    opacity: 0.95;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4));
+  }
   #hint {
     color: #555;
     font-size: 12px;
@@ -192,7 +201,6 @@ const SHAPES = [
   [[0,1,0],[0,1,0],[1,1,0]], [[0,1,0],[0,1,0],[0,1,1]],
 ];
 
-/* ─── TRIM SHAPE ────────────────────────────────── */
 function trimShape(shape) {
   let minX = Infinity, minY = Infinity, maxX = -1, maxY = -1;
   for (let y = 0; y < shape.length; y++) {
@@ -211,14 +219,15 @@ function trimShape(shape) {
     .map(row => row.slice(minX, maxX + 1));
 }
 
-/* ── STATE ──────────────────────────────────────── */
 let board = [], score = 0, combo = 0;
 let bestScore = parseInt(localStorage.getItem('lolych_best') || '0');
 let pieces = [null, null, null];
 let selectedIndex = -1;
 let isGameOver = false;
+let dragClone = null;
+let dragShape = null;
+let dragEmoji = "";
 
-/* ── ELEMENTS ───────────────────────────────────── */
 const boardEl      = document.getElementById('game-board');
 const piecesEl     = document.getElementById('pieces-container');
 const scoreEl      = document.getElementById('score');
@@ -231,7 +240,6 @@ const finalBestEl  = document.getElementById('final-best');
 
 bestEl.textContent = bestScore;
 
-/* ── INIT ───────────────────────────────────────── */
 function initGame() {
   board         = Array(SIZE).fill(null).map(() => Array(SIZE).fill(''));
   score         = 0;
@@ -262,7 +270,6 @@ function randomPiece() {
   };
 }
 
-/* ── RENDER BOARD ───────────────────────────────── */
 function renderBoard() {
   boardEl.innerHTML = '';
   for (let y = 0; y < SIZE; y++) {
@@ -278,7 +285,7 @@ function renderBoard() {
         e.stopPropagation();
         if (selectedIndex >= 0 && pieces[selectedIndex] && !isGameOver) {
           placePiece(x, y);
-          endDrag();
+          clearPreview();
         }
       });
       boardEl.appendChild(cell);
@@ -293,28 +300,22 @@ function cellEl(x, y) {
 function showPreview(px, py) {
   clearPreview();
   if (selectedIndex < 0 || !pieces[selectedIndex] || isGameOver) return;
-  const { shape } = pieces[selectedIndex];
-  const h = shape.length, w = shape[0].length;
-  if (px + w > SIZE || py + h > SIZE) {
-    markPreview(px, py, shape, 'invalid');
-    return;
-  }
-  let fits = true;
-  for (let sy = 0; sy < h && fits; sy++)
-    for (let sx = 0; sx < w && fits; sx++)
-      if (shape[sy][sx] && board[py+sy][px+sx]) fits = false;
-  markPreview(px, py, shape, fits ? 'preview' : 'invalid');
-}
-
-function markPreview(px, py, shape, cls) {
-  const h = shape.length, w = shape[0].length;
-  for (let sy = 0; sy < h; sy++) {
-    for (let sx = 0; sx < w; sx++) {
+  const shape = pieces[selectedIndex].shape;
+  let valid = true;
+  for (let sy = 0; sy < shape.length; sy++) {
+    for (let sx = 0; sx < shape[0].length; sx++) {
       if (!shape[sy][sx]) continue;
-      const cx = px + sx, cy = py + sy;
-      if (cx >= SIZE || cy >= SIZE) continue;
-      const el = cellEl(cx, cy);
-      if (!el.classList.contains('filled')) el.classList.add(cls);
+      const x = px + sx, y = py + sy;
+      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) { valid = false; continue; }
+      if (board[y][x]) valid = false;
+    }
+  }
+  for (let sy = 0; sy < shape.length; sy++) {
+    for (let sx = 0; sx < shape[0].length; sx++) {
+      if (!shape[sy][sx]) continue;
+      const x = px + sx, y = py + sy;
+      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) continue;
+      cellEl(x, y).classList.add(valid ? 'preview' : 'invalid');
     }
   }
 }
@@ -325,28 +326,22 @@ function clearPreview() {
   }
 }
 
-/* ── RENDER PIECES ──────────────────────────────── */
 function renderPieces() {
   piecesEl.innerHTML = '';
   for (let idx = 0; idx < 3; idx++) {
     const slot = document.createElement('div');
-    slot.className = 'piece-slot';
-
+    slot.className = 'piece-slot' + (idx === selectedIndex ? ' selected' : '');
     const p = pieces[idx];
     if (!p) {
       slot.classList.add('used');
       piecesEl.appendChild(slot);
       continue;
     }
-
-    if (idx === selectedIndex) slot.classList.add('selected');
-
     const grid = document.createElement('div');
     grid.className = 'piece-grid';
     const shape = p.shape;
     grid.style.gridTemplateColumns = `repeat(${shape[0].length}, 22px)`;
     grid.style.gridTemplateRows    = `repeat(${shape.length}, 22px)`;
-
     for (let sy = 0; sy < shape.length; sy++) {
       for (let sx = 0; sx < shape[0].length; sx++) {
         const c = document.createElement('div');
@@ -355,106 +350,90 @@ function renderPieces() {
         grid.appendChild(c);
       }
     }
-
     slot.appendChild(grid);
-    slot.addEventListener('pointerdown', (e) => {
+    slot.onpointerdown = (e) => {
       e.preventDefault();
       startDrag(idx, e);
-    });
+    };
     piecesEl.appendChild(slot);
   }
 }
 
-/* ── DRAG & DROP ────────────────────────────────── */
-let dragPieceIndex = -1;
-let dragClone = null;
-let dragOffsetX = 0, dragOffsetY = 0;
-
-function startDrag(idx, e) {
-  if (!pieces[idx] || isGameOver) return;
-  selectedIndex = idx;
-  dragPieceIndex = idx;
-  renderPieces();
-
-  // создаём клон для перетаскивания
-  const slot = piecesEl.children[idx];
-  const rect = slot.getBoundingClientRect();
-  dragOffsetX = e.clientX - rect.left;
-  dragOffsetY = e.clientY - rect.top;
-
-  dragClone = slot.cloneNode(true);
-  dragClone.style.position = 'fixed';
-  dragClone.style.left = (e.clientX - dragOffsetX) + 'px';
-  dragClone.style.top = (e.clientY - dragOffsetY) + 'px';
-  dragClone.style.zIndex = '999';
-  dragClone.style.opacity = '0.85';
-  dragClone.style.pointerEvents = 'none';
-  dragClone.style.transform = 'scale(1.1)';
-  document.body.appendChild(dragClone);
-
-  window.addEventListener('pointermove', onDragMove);
-  window.addEventListener('pointerup', onDragUp);
-}
-
-function onDragMove(e) {
-  if (!dragClone) return;
-  dragClone.style.left = (e.clientX - dragOffsetX) + 'px';
-  dragClone.style.top = (e.clientY - dragOffsetY) + 'px';
-
-  // подсвечиваем возможное место на поле
-  const boardRect = boardEl.getBoundingClientRect();
-  const cellSize = 35; // 32px + gap 3px
-  const relX = e.clientX - boardRect.left;
-  const relY = e.clientY - boardRect.top;
-  const cellX = Math.floor(relX / cellSize);
-  const cellY = Math.floor(relY / cellSize);
-  clearPreview();
-  if (cellX >= 0 && cellX < SIZE && cellY >= 0 && cellY < SIZE) {
-    showPreview(cellX, cellY);
-  }
-}
-
-function onDragUp(e) {
-  window.removeEventListener('pointermove', onDragMove);
-  window.removeEventListener('pointerup', onDragUp);
-  if (dragClone) {
-    document.body.removeChild(dragClone);
-    dragClone = null;
-  }
-
-  // ищем ближайшую клетку
-  const boardRect = boardEl.getBoundingClientRect();
-  const cellSize = 35;
-  const relX = e.clientX - boardRect.left;
-  const relY = e.clientY - boardRect.top;
-  const cellX = Math.floor(relX / cellSize);
-  const cellY = Math.floor(relY / cellSize);
-
-  if (cellX >= 0 && cellX < SIZE && cellY >= 0 && cellY < SIZE) {
-    if (selectedIndex >= 0 && pieces[selectedIndex] && !isGameOver) {
-      placePiece(cellX, cellY);
+/* ─── DRAG & DROP ────────────────────────────── */
+function startDrag(index, e) {
+  if (!pieces[index] || isGameOver) return;
+  selectedIndex = index;
+  piecesEl.children[index].style.visibility = 'hidden';
+  dragShape = pieces[index].shape;
+  dragEmoji = pieces[index].emoji;
+  dragClone = document.createElement('div');
+  dragClone.className = 'piece-grid dragging-piece';
+  dragClone.style.gridTemplateColumns = `repeat(${dragShape[0].length}, 22px)`;
+  dragClone.style.gridTemplateRows    = `repeat(${dragShape.length}, 22px)`;
+  for (let y = 0; y < dragShape.length; y++) {
+    for (let x = 0; x < dragShape[0].length; x++) {
+      const c = document.createElement('div');
+      c.className = 'piece-cell';
+      if (dragShape[y][x]) { c.classList.add('active'); c.textContent = dragEmoji; }
+      dragClone.appendChild(c);
     }
   }
-  endDrag();
+  document.body.appendChild(dragClone);
+  moveDrag(e);
+  window.addEventListener('pointermove', moveDrag);
+  window.addEventListener('pointerup', dropPiece);
 }
 
-function endDrag() {
+function moveDrag(e) {
+  if (!dragClone) return;
+  const w = dragClone.offsetWidth;
+  const h = dragClone.offsetHeight;
+  dragClone.style.left = (e.clientX - w / 2) + 'px';
+  dragClone.style.top  = (e.clientY - h / 2) + 'px';
   clearPreview();
-  dragPieceIndex = -1;
-  // не сбрасываем selectedIndex здесь, он сбрасывается в placePiece или остаётся
+  const rect = boardEl.getBoundingClientRect();
+  if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+  const cell = boardEl.querySelector('.cell');
+  const cellRect = cell.getBoundingClientRect();
+  const gap = parseFloat(getComputedStyle(boardEl).gap);
+  const size = cellRect.width + gap;
+  const x = Math.floor((e.clientX - rect.left) / size);
+  const y = Math.floor((e.clientY - rect.top) / size);
+  showPreview(x, y);
 }
 
-/* ── PLACE PIECE ────────────────────────────────── */
+function dropPiece(e) {
+  window.removeEventListener('pointermove', moveDrag);
+  window.removeEventListener('pointerup', dropPiece);
+  if (dragClone) { dragClone.remove(); dragClone = null; }
+  const rect = boardEl.getBoundingClientRect();
+  if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+    const cell = boardEl.querySelector('.cell');
+    const cellRect = cell.getBoundingClientRect();
+    const gap = parseFloat(getComputedStyle(boardEl).gap);
+    const size = cellRect.width + gap;
+    const x = Math.floor((e.clientX - rect.left) / size);
+    const y = Math.floor((e.clientY - rect.top) / size);
+    placePiece(x, y);
+  }
+  clearPreview();
+  if (pieces[selectedIndex]) renderPieces();
+}
+
+/* ─── PLACE PIECE ──────────────────────────────── */
 function placePiece(px, py) {
   if (selectedIndex < 0 || !pieces[selectedIndex] || isGameOver) return;
   const { shape, emoji } = pieces[selectedIndex];
   const h = shape.length, w = shape[0].length;
 
-  if (px + w > SIZE || py + h > SIZE) return;
-
-  for (let sy = 0; sy < h; sy++)
-    for (let sx = 0; sx < w; sx++)
-      if (shape[sy][sx] && board[py+sy][px+sx]) return;
+  for (let sy = 0; sy < h; sy++) {
+    for (let sx = 0; sx < w; sx++) {
+      if (!shape[sy][sx]) continue;
+      const x = px + sx, y = py + sy;
+      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+      if (board[y][x]) return;
+    }
+  }
 
   let cells = 0;
   for (let sy = 0; sy < h; sy++)
