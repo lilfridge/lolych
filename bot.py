@@ -33,7 +33,7 @@ GIPHY_KEY = os.environ.get("GIPHY_KEY")
 IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
-DONATE_URL = "https://pay.cloudtips.ru/p/acfca99a"
+DONATE_URL = "https://dalink.to/lilifridge"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -210,6 +210,7 @@ MAX_CHAT_STICKERS = 100
 _clear_confirm = {}
 _clear_category = {}
 _gif_mode = {}
+_started_chats = set()
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -659,7 +660,7 @@ def clear_menu():
 def handle_new_member(message):
     for member in message.new_chat_members:
         if member.username == bot.get_me().username:
-            bot.send_message(message.chat.id, "👋 <b>Привет, хомяк, с тобой земляк!</b>\n☕ <a href='{}'>Поддержать бота</a>".format(DONATE_URL), parse_mode="HTML")
+            bot.send_message(message.chat.id, f"👋 <b>Привет, хомяк, с тобой земляк!</b>\n☕ <a href='{DONATE_URL}'>Поддержать бота</a>", parse_mode="HTML")
 
 # ─── Стикеры из чата ─────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["sticker"])
@@ -684,9 +685,13 @@ def cmd_start(message):
     cid = message.chat.id
     for d in [_gif_mode]:
         d[cid] = False
+    
+    if cid not in _started_chats:
+        _started_chats.add(cid)
+        bot.send_message(cid, f"🤖 <b>Добавь меня в свой чат:</b> @Lolych_bot\n☕ <a href='{DONATE_URL}'>Поддержать бота</a>", parse_mode="HTML")
+    
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
-    bot.send_message(cid, "🤖 <b>Добавь меня в свой чат:</b> @Lolych_bot\n☕ <a href='{}'>Поддержать бота</a>".format(DONATE_URL), parse_mode="HTML")
 
 @bot.message_handler(commands=["fun"])
 def cmd_fun(message):
