@@ -94,7 +94,15 @@
     align-items: center;
     justify-content: center;
     font-size: 14px;
+    box-sizing: border-box;
   }
+  .piece-cell.active {
+    background: #2e4a3e;
+  }
+  .piece-cell:empty {
+    background: transparent;
+  }
+
   .piece-cell.active {
     background: #2e4a3e;
   }
@@ -219,14 +227,27 @@ function renderBoard() {
 function renderPieces() {
   piecesEl.innerHTML = '';
   pieces.forEach((p, idx) => {
+    const shape = p.shape;
+    const rows = shape.length;
+    const cols = shape[0].length;
+
     const div = document.createElement('div');
     div.className = 'piece' + (idx === selectedIndex ? ' selected' : '');
-    div.style.gridTemplateColumns = `repeat(${p.shape[0].length}, 1fr)`;
-    for (let y = 0; y < p.shape.length; y++) {
-      for (let x = 0; x < p.shape[0].length; x++) {
+    div.style.gridTemplateColumns = `repeat(${cols}, 24px)`;
+    div.style.gridTemplateRows = `repeat(${rows}, 24px)`;
+    div.style.gap = '2px';
+    div.style.padding = '6px';
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
         const c = document.createElement('div');
-        c.className = 'piece-cell' + (p.shape[y][x] ? ' active' : '');
-        if (p.shape[y][x]) c.textContent = p.emoji;
+        if (shape[y][x]) {
+          c.className = 'piece-cell active';
+          c.textContent = p.emoji;
+        } else {
+          c.className = 'piece-cell';
+          c.style.visibility = 'hidden'; // скрываем пустые клетки
+        }
         div.appendChild(c);
       }
     }
