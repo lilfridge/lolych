@@ -428,8 +428,12 @@ def make_photo_meme(chat_id):
             font_paths = [
                 os.path.join(base_dir, "DejaVuSans.ttf"),
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
             ]
+            
+            # ОТЛАДКА
+            log.info(f"[FONT] base_dir={base_dir}")
+            for fp in font_paths:
+                log.info(f"[FONT] проверяю {fp}: exists={os.path.isfile(fp)}")
             
             font_size = th
             font = None
@@ -437,13 +441,17 @@ def make_photo_meme(chat_id):
                 if os.path.isfile(fp):
                     try:
                         font = ImageFont.truetype(fp, font_size)
+                        log.info(f"[FONT] загружен {fp} размер {font_size}")
                         break
-                    except: pass
+                    except Exception as e:
+                        log.error(f"[FONT] ошибка {fp}: {e}")
             
             if font is None:
+                log.error(f"[FONT] ШРИФТ НЕ НАЙДЕН! Использую дефолтный")
                 font = ImageFont.load_default()
                 font_size = 20
             
+            # Перенос текста
             lines = []
             words = txt.split()
             current = ""
@@ -464,6 +472,7 @@ def make_photo_meme(chat_id):
             if current: lines.append(current)
             if not lines: lines = [txt]
             
+            # Рисуем текст
             line_h = font_size + 4
             total_h = line_h * len(lines)
             y = ty + (th - total_h) // 2
@@ -475,10 +484,12 @@ def make_photo_meme(chat_id):
                     text_w = font.getsize(line)[0]
                 x = tx + (tw - text_w) // 2
                 
+                # Обводка
                 for dx in range(-2, 3):
                     for dy in range(-2, 3):
                         if dx != 0 or dy != 0:
                             draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0, 255))
+                # Белый текст
                 draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
                 y += line_h
 
