@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Лолыч Тауэр</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f0f1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  #header .logo { font-size: 28px; }
+  #header .title { color: #e94560; font-size: 20px; font-weight: bold; }
+  #score-panel {
+    display: flex;
+    justify-content: space-between;
+    width: 300px;
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  canvas {
+    background: #1a1a2e;
+    border-radius: 10px;
+    display: block;
+    touch-action: manipulation;
+  }
+  #phrase {
+    color: #e94560;
+    font-size: 20px;
+    font-weight: bold;
+    height: 28px;
+    margin-top: 8px;
+    text-align: center;
+  }
+  #game-over {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    color: white;
+  }
+  #game-over h2 { font-size: 30px; color: #e94560; margin-bottom: 10px; }
+  #game-over p { font-size: 16px; margin: 5px 0; }
+  #game-over button {
+    background: #e94560;
+    color: white;
+    border: none;
+    padding: 10px 28px;
+    font-size: 16px;
+    border-radius: 8px;
+    margin: 8px 4px 0;
+    cursor: pointer;
+  }
+  #game-over button.share { background: #25D366; }
+</style>
+</head>
+<body>
+<div id="header">
+  <span class="logo">🃏</span>
+  <span class="title">Лолыч Тауэр</span>
+</div>
+<div id="score-panel">
+  <span>🏆 <span id="score">0</span></span>
+  <span>🔥 Рекорд: <span id="best">0</span></span>
+</div>
+<canvas id="game" width="300" height="500"></canvas>
+<div id="phrase"></div>
+
+<div id="game-over">
+  <h2>жто не не!</h2>
+  <p>Счёт: <span id="final-score">0</span></p>
+  <p>🔥 Лучший: <span id="final-best">0</span></p>
+  <button onclick="restart()">🔄 Ещё раз</button>
+  <button class="share" onclick="share()">📤 Поделиться</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const EMOJIS = ['💀','🗿','🤡','🔥','😭','👀','💩','🧠'];
+const PHRASES = ['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','🤡'];
+
+let blocks = [];
+let currentBlock = null;
+let direction = 1;
+let speed = 3;
+let score = 0;
+let bestScore = parseInt(localStorage.getItem('lolych_stack_best') || '0');
+let gameRunning = true;
+let animFrame;
+
+document.getElementById('best').textContent = bestScore;
+
+function init() {
+  blocks = [{ x: 100, y: H - 20, w: 140, h: 20, emoji: '🃏' }];
+  score = 0;
+  speed = 3;
+  gameRunning = true;
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('phrase').textContent = '';
+  document.getElementById('score').textContent = score;
+  spawnBlock();
+  if (animFrame) cancelAnimationFrame(animFrame);
+  loop();
+}
+
+function spawnBlock() {
+  const last = blocks[blocks.length - 1];
+  const w = Math.max(40, last.w - Math.floor(score / 10) * 2);
+  currentBlock = {
+    x: direction > 0 ? 0 : W - w,
+    y: last.y - 22,
+    w: w,
+    h: 20,
+    emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)]
+  };
+}
+
+function loop() {
+  if (!gameRunning) return;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // фон
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+
+  // блоки
+  blocks.forEach(b => {
+    ctx.fillStyle = '#2e4a3e';
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(b.emoji, b.x + b.w / 2, b.y + b.h - 4);
+  });
+
+  // текущий блок
+  if (currentBlock && gameRunning) {
+    currentBlock.x += direction * speed;
+    if (currentBlock.x + currentBlock.w >= W) direction = -1;
+    if (currentBlock.x <= 0) direction = 1;
+
+    ctx.fillStyle = '#3a6a56';
+    ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.w, currentBlock.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentBlock.emoji, currentBlock.x + currentBlock.w / 2, currentBlock.y + currentBlock.h - 4);
+  }
+
+  animFrame = requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click', () => {
+  if (!gameRunning || !currentBlock) return;
+
+  const last = blocks[blocks.length - 1];
+
+  // проверка пересечения
+  const overlapLeft = Math.max(last.x, currentBlock.x);
+  const overlapRight = Math.min(last.x + last.w, currentBlock.x + currentBlock.w);
+  const overlapW = overlapRight - overlapLeft;
+
+  if (overlapW > 0) {
+    currentBlock.x = overlapLeft;
+    currentBlock.w = overlapW;
+    blocks.push(currentBlock);
+    score++;
+    speed = Math.min(8, 3 + Math.floor(score / 10));
+    document.getElementById('score').textContent = score;
+    spawnBlock();
+  } else {
+    // мимо — game over
+    gameRunning = false;
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('lolych_stack_best', bestScore);
+      document.getElementById('best').textContent = bestScore;
+    }
+    document.getElementById('phrase').textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('final-best').textContent = bestScore;
+    document.getElementById('game-over').style.display = 'flex';
+  }
+});
+
+function restart() { init(); }
+
+function share() {
+  const text = `🃏 Лолыч Тауэр! Мой счёт: ${score} (рекорд: ${bestScore}). Играй: @Lolych_bot`;
+  window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(text)}`);
+}
+
+init();
+</script>
+</body>
+</html>
