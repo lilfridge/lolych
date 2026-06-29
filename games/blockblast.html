@@ -76,7 +76,7 @@
     display: grid;
     gap: 2px;
     background: #1a1a2e;
-    padding: 5px;
+    padding: 6px;
     border-radius: 8px;
     cursor: pointer;
     border: 2px solid transparent;
@@ -96,13 +96,6 @@
     font-size: 14px;
     box-sizing: border-box;
   }
-  .piece-cell.active {
-    background: #2e4a3e;
-  }
-  .piece-cell:empty {
-    background: transparent;
-  }
-
   .piece-cell.active {
     background: #2e4a3e;
   }
@@ -158,23 +151,32 @@ const SIZE = 8;
 const EMOJIS = ['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️','👾','🎃','🤖','👽'];
 const PHRASES = ['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','АБСУРД!','🤡','ОГОНЬ!'];
 
+// Фигуры как список координат блоков
 const SHAPES = [
-  [[1]], [[1,1]], [[1],[1]], [[1,1,1]], [[1],[1],[1]],
-  [[1,1,1,1]], [[1],[1],[1],[1]], [[1,1,1,1,1]], [[1],[1],[1],[1],[1]],
-  [[1,1],[1,1]], [[1,1,1],[1,1,1]], [[1,1],[1,1],[1,1]],
-  [[1,1,1],[1,1,1],[1,1,1]],
-  [[1,0],[1,1]], [[0,1],[1,1]], [[1,1],[1,0]], [[1,1],[0,1]],
-  [[1,0],[1,0],[1,1]], [[0,1],[0,1],[1,1]],
-  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]],
-  [[1,1,1],[1,0,0]], [[1,1,1],[0,0,1]], [[0,0,1],[1,1,1]], [[1,0,0],[1,1,1]],
-  [[1,0,0],[1,0,0],[1,1,1]], [[0,0,1],[0,0,1],[1,1,1]],
-  [[1,1,1],[1,0,0],[1,0,0]], [[1,1,1],[0,0,1],[0,0,1]],
-  [[1,1,1],[0,1,0]], [[0,1,0],[1,1,1]], [[1,0],[1,1],[1,0]], [[0,1],[1,1],[0,1]],
-  [[0,1,1],[1,1,0]], [[1,1,0],[0,1,1]], [[1,0],[1,1],[0,1]], [[0,1],[1,1],[1,0]],
-  [[1,0,1],[1,1,1]], [[1,1],[1,1],[1,0]], [[1,1],[1,1],[0,1]],
-  [[1,1,0],[0,1,0],[0,1,0]], [[0,1,1],[0,1,0],[0,1,0]],
-  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]],
-  [[0,1,0],[0,1,0],[1,1,0]], [[0,1,0],[0,1,0],[0,1,1]],
+  [{x:0,y:0}],
+  [{x:0,y:0},{x:1,y:0}], [{x:0,y:0},{x:0,y:1}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0}], [{x:0,y:0},{x:0,y:1},{x:0,y:2}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0}], [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0},{x:4,y:0}], [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3},{x:0,y:4}],
+  [{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:1,y:1}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1}],
+  [{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2},{x:1,y:2}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1},{x:0,y:2},{x:1,y:2},{x:2,y:2}],
+  [{x:0,y:0},{x:1,y:0},{x:0,y:1}], [{x:0,y:0},{x:0,y:1},{x:1,y:1}],
+  [{x:0,y:0},{x:0,y:1},{x:1,y:0}], [{x:0,y:0},{x:1,y:0},{x:1,y:1}],
+  [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:2}], [{x:0,y:2},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
+  [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:1,y:2}], [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:0}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1}], [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:2,y:1}],
+  [{x:0,y:1},{x:1,y:1},{x:2,y:1},{x:2,y:0}], [{x:0,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1}],
+  [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
+  [{x:1,y:0},{x:1,y:1},{x:1,y:2},{x:0,y:0},{x:0,y:1},{x:0,y:2}],
+  [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:0,y:2}], [{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:1,y:1}],
+  [{x:0,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2}], [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
+  [{x:1,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1}], [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:2,y:1}],
+  [{x:0,y:0},{x:0,y:1},{x:1,y:1},{x:1,y:2}], [{x:1,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2}],
+  [{x:0,y:0},{x:2,y:0},{x:0,y:1},{x:1,y:1},{x:2,y:1}],
+  [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:1,y:0},{x:1,y:1}], [{x:1,y:0},{x:0,y:1},{x:1,y:1},{x:0,y:2},{x:1,y:2}],
+  [{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:0,y:2}], [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:1,y:2}],
 ];
 
 let board = [], score = 0, combo = 0;
@@ -204,9 +206,9 @@ function initGame() {
 }
 
 function addPiece() {
-  const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+  const blocks = SHAPES[Math.floor(Math.random() * SHAPES.length)];
   const emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-  pieces.push({ shape, emoji });
+  pieces.push({ blocks, emoji });
 }
 
 function renderBoard() {
@@ -227,26 +229,27 @@ function renderBoard() {
 function renderPieces() {
   piecesEl.innerHTML = '';
   pieces.forEach((p, idx) => {
-    const shape = p.shape;
-    const rows = shape.length;
-    const cols = shape[0].length;
+    let maxX = 0, maxY = 0;
+    p.blocks.forEach(b => { maxX = Math.max(maxX, b.x); maxY = Math.max(maxY, b.y); });
+    const cols = maxX + 1, rows = maxY + 1;
 
     const div = document.createElement('div');
     div.className = 'piece' + (idx === selectedIndex ? ' selected' : '');
     div.style.gridTemplateColumns = `repeat(${cols}, 24px)`;
     div.style.gridTemplateRows = `repeat(${rows}, 24px)`;
-    div.style.gap = '2px';
-    div.style.padding = '6px';
+
+    const grid = Array(rows).fill().map(() => Array(cols).fill(false));
+    p.blocks.forEach(b => { grid[b.y][b.x] = true; });
 
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const c = document.createElement('div');
-        if (shape[y][x]) {
+        if (grid[y][x]) {
           c.className = 'piece-cell active';
           c.textContent = p.emoji;
         } else {
           c.className = 'piece-cell';
-          c.style.visibility = 'hidden'; // скрываем пустые клетки
+          c.style.visibility = 'hidden';
         }
         div.appendChild(c);
       }
@@ -261,16 +264,16 @@ function renderPieces() {
 
 function placePiece(px, py) {
   if (selectedIndex < 0 || gameOver) return;
-  const { shape, emoji } = pieces[selectedIndex];
-  const h = shape.length, w = shape[0].length;
-  if (px + w > SIZE || py + h > SIZE) return;
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++)
-      if (shape[y][x] && board[py + y][px + x]) return;
+  const { blocks, emoji } = pieces[selectedIndex];
 
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++)
-      if (shape[y][x]) board[py + y][px + x] = emoji;
+  for (const b of blocks) {
+    const x = px + b.x, y = py + b.y;
+    if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || board[y][x]) return;
+  }
+
+  for (const b of blocks) {
+    board[py + b.y][px + b.x] = emoji;
+  }
 
   score += 1; combo = 0;
   pieces.splice(selectedIndex, 1);
@@ -300,15 +303,18 @@ function placePiece(px, py) {
 
 function checkGameOver() {
   for (const p of pieces) {
-    const h = p.shape.length, w = p.shape[0].length;
-    for (let y = 0; y <= SIZE - h; y++)
-      for (let x = 0; x <= SIZE - w; x++) {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
         let fits = true;
-        for (let sy = 0; sy < h && fits; sy++)
-          for (let sx = 0; sx < w && fits; sx++)
-            if (p.shape[sy][sx] && board[y + sy][x + sx]) fits = false;
+        for (const b of p.blocks) {
+          const bx = x + b.x, by = y + b.y;
+          if (bx < 0 || bx >= SIZE || by < 0 || by >= SIZE || board[by][bx]) {
+            fits = false; break;
+          }
+        }
         if (fits) return false;
       }
+    }
   }
   return true;
 }
