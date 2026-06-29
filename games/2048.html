@@ -9,43 +9,64 @@
 body{
   background:#0f0f1a;display:flex;flex-direction:column;align-items:center;
   justify-content:center;min-height:100vh;font-family:Arial,sans-serif;
-  touch-action:manipulation;user-select:none;
+  touch-action:manipulation;user-select:none;transition:background .3s;
 }
+body.light{background:#f5f0e8}
+body.green{background:#1a3a1a}
 #header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 #header .logo{font-size:28px}
 #header .title{color:#e94560;font-size:22px;font-weight:bold}
-#goal{color:#ffd93d;font-size:12px;margin-bottom:6px;text-align:center}
-#scores{display:flex;gap:14px;margin-bottom:6px;color:#ccc;font-size:13px}
-#achieve{color:#f0c040;font-size:16px;font-weight:bold;height:22px;text-align:center;margin-bottom:4px}
+#goal{color:#ffd93d;font-size:12px;margin-bottom:4px;text-align:center}
+#scores{display:flex;gap:12px;margin-bottom:4px;color:#ccc;font-size:12px;flex-wrap:wrap;justify-content:center}
+#progressBar{width:290px;height:6px;background:#1a1a2e;border-radius:3px;margin-bottom:8px;overflow:hidden}
+#progressFill{height:100%;background:#e94560;transition:width .3s;width:0%}
+#achieve{color:#f0c040;font-size:15px;font-weight:bold;height:22px;text-align:center;margin-bottom:4px}
 #board{
   display:grid;grid-template-columns:repeat(4,68px);grid-template-rows:repeat(4,68px);
-  gap:6px;background:#1a1a2e;padding:8px;border-radius:10px;
+  gap:6px;background:#1a1a2e;padding:8px;border-radius:10px;position:relative;
 }
+body.light #board{background:#bbada0}
+body.green #board{background:#0a2a0a}
 .tile{
   width:68px;height:68px;background:#252540;border-radius:10px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  transition:all .12s ease;color:#fff;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:bold;color:#fff;
+  position:absolute;transition:transform .15s ease;
 }
-.tile .num{font-size:18px;font-weight:bold;line-height:1}
-.tile .emoji{font-size:22px;line-height:1}
+body.light .tile{background:#cdc1b4;color:#776e65}
+body.green .tile{background:#1a3a1a;color:#cfc}
 .tile[data-v="2"]{background:#2e4a3e}.tile[data-v="4"]{background:#3a6a56}
 .tile[data-v="8"]{background:#4a8a6e}.tile[data-v="16"]{background:#5aaa86}
 .tile[data-v="32"]{background:#6aca9e}.tile[data-v="64"]{background:#e94560}
 .tile[data-v="128"]{background:#ff6b6b}.tile[data-v="256"]{background:#ffd93d;color:#000}
 .tile[data-v="512"]{background:#6c5ce7}.tile[data-v="1024"]{background:#00cec9}
 .tile[data-v="2048"]{background:#ff9ff3}
+body.light .tile[data-v="2"]{background:#eee4da;color:#776e65}
+body.light .tile[data-v="4"]{background:#ede0c8;color:#776e65}
+body.light .tile[data-v="8"]{background:#f2b179;color:#f9f6f2}
+body.light .tile[data-v="16"]{background:#f59563;color:#f9f6f2}
+body.light .tile[data-v="32"]{background:#f67c5f;color:#f9f6f2}
+body.light .tile[data-v="64"]{background:#f65e3b;color:#f9f6f2}
+body.light .tile[data-v="128"]{background:#edcf72;color:#f9f6f2}
+body.light .tile[data-v="256"]{background:#edcc61;color:#f9f6f2}
+body.light .tile[data-v="512"]{background:#edc850;color:#f9f6f2}
+body.light .tile[data-v="1024"]{background:#edc53f;color:#f9f6f2}
+body.light .tile[data-v="2048"]{background:#edc22e;color:#f9f6f2}
 .tile.pop{animation:popIn .25s ease}
 .tile.merge{animation:mergeBounce .2s ease}
 @keyframes popIn{0%{transform:scale(0);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
-@keyframes mergeBounce{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
-#btns{display:grid;grid-template-columns:55px 55px 55px;grid-template-rows:55px 55px;gap:5px;margin-top:10px}
-#btns button{background:#252540;color:#fff;border:none;font-size:22px;border-radius:8px;cursor:pointer;transition:background .1s}
+@keyframes mergeBounce{0%{transform:scale(1)}40%{transform:scale(1.3)}100%{transform:scale(1)}}
+#btns{display:grid;grid-template-columns:50px 50px 50px;grid-template-rows:50px 50px;gap:5px;margin-top:8px}
+#btns button{background:#252540;color:#fff;border:none;font-size:20px;border-radius:8px;cursor:pointer;transition:background .1s}
 #btns button:active{background:#e94560}
 #up{grid-column:2;grid-row:1}
 #left{grid-column:1;grid-row:2}
 #right{grid-column:3;grid-row:2}
 #down{grid-column:2;grid-row:2}
-#hint{color:#555;font-size:11px;margin-top:8px}
+#skinBtns{display:flex;gap:8px;margin-top:8px}
+#skinBtns button{border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;color:#fff}
+#skinDark{background:#1a1a2e}#skinLight{background:#cdc1b4;color:#000}#skinGreen{background:#1a3a1a}
+#hint{color:#555;font-size:11px;margin-top:6px}
 #over{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
   flex-direction:column;align-items:center;justify-content:center;z-index:10;color:#fff;
@@ -54,28 +75,34 @@ body{
 #over p{font-size:16px;margin:5px 0}
 #over button{background:#e94560;color:#fff;border:none;padding:10px 28px;font-size:16px;border-radius:8px;margin:8px 4px 0;cursor:pointer}
 #over .share{background:#25D366}
-#undoBtn{background:#252540;color:#ccc;border:none;padding:6px 14px;font-size:12px;border-radius:6px;cursor:pointer;margin-top:6px}
 </style>
 </head>
 <body>
 <div id="header"><span class="logo">🃏</span><span class="title">2048 Лолыч</span></div>
-<div id="goal">🎯 Собери 🃏 (2048)!</div>
+<div id="goal">🎯 Собери 2048!</div>
 <div id="scores">
   <span>🏆 <b id="score">0</b></span>
+  <span>👣 Ходов: <b id="moves">0</b></span>
   <span>📦 <b id="bestTile">-</b></span>
   <span>🔥 <b id="best">0</b></span>
 </div>
+<div id="progressBar"><div id="progressFill"></div></div>
 <div id="achieve"></div>
 <div id="board"></div>
 <div id="btns">
   <button id="up">▲</button><button id="left">◀</button>
   <button id="right">▶</button><button id="down">▼</button>
 </div>
-<button id="undoBtn" onclick="undo()">↩ Отменить ход</button>
+<div id="skinBtns">
+  <button id="skinDark" onclick="setSkin('dark')">🌙 Тёмная</button>
+  <button id="skinLight" onclick="setSkin('light')">☀️ Светлая</button>
+  <button id="skinGreen" onclick="setSkin('green')">🌿 Зелёная</button>
+</div>
 <div id="hint">Свайпай или жми кнопки</div>
 <div id="over">
   <h2>жто не не!</h2>
   <p>Счёт: <b id="fs">0</b></p>
+  <p>👣 Ходов: <b id="fm">0</b></p>
   <p>📦 Блок: <b id="fb2">-</b></p>
   <p>🔥 Лучший: <b id="fb">0</b></p>
   <button onclick="restart()">🔄 Ещё раз</button>
@@ -83,25 +110,36 @@ body{
 </div>
 
 <script>
-const EMO=['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🧌','🃏'];
-const ACH={64:'🔥 Новичок!',128:'💀 Сглыпа!',256:'🤡 Мастер!',512:'🧠 Гений!',1024:'👽 Бог!',2048:'🃏 ЛОЛЫЧ!'};
+const ACH={128:'🔥 Огонь!',256:'🤡 Мастер!',512:'🧠 Гений!',1024:'👽 Космос!',2048:'🃏 ЛОЛЫЧ!'};
 let board,score,best=parseInt(localStorage.getItem('lolych2048_best')||'0');
-let bestBlock=0,dead=false,history=[];
+let bestBlock=0,dead=false,history=[],moves=0;
+let tilePositions=[]; // для анимации
 const B=document.getElementById('board'),scEl=document.getElementById('score'),bestEl=document.getElementById('best');
 const tileEl=document.getElementById('bestTile'),achEl=document.getElementById('achieve');
-const overEl=document.getElementById('over'),fsEl=document.getElementById('fs'),fbEl=document.getElementById('fb'),fb2El=document.getElementById('fb2');
+const movesEl=document.getElementById('moves'),progressEl=document.getElementById('progressFill');
+const overEl=document.getElementById('over'),fsEl=document.getElementById('fs'),fbEl=document.getElementById('fb'),fb2El=document.getElementById('fb2'),fmEl=document.getElementById('fm');
 bestEl.textContent=best;
 
-// Звуки через Web Audio API
-function beep(freq,dur=.08,vol=.08){
-  try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=freq;g.gain.value=vol;o.start();o.stop(a.currentTime+dur)}catch(e){}
+// Слова из чата (если переданы в URL)
+const url=new URLSearchParams(window.location.search);const chatWords=url.get('words');
+const WORD=chatWords?chatWords.split(','):['ЙО!','ХА!','УХ!','ОГО!','МОЩНО!'];
+function randWord(){return WORD[Math.floor(Math.random()*WORD.length)]}
+
+// Звуки
+function beep(freq,dur=.04,vol=.04,type='sine'){
+  try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.type=type;o.connect(g);g.connect(a.destination);o.frequency.value=freq;g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.start();o.stop(a.currentTime+dur)}catch(e){}
 }
+function sndMove(){beep(300,.04,.03,'sine')}
+function sndMerge(v){beep(400+v*10,.06,.05,'triangle');setTimeout(()=>beep(600+v*10,.06,.04,'triangle'),.06)}
+function sndEnd(){beep(100,.2,.08,'sawtooth')}
+function sndRestart(){beep(500,.05,.04,'sine')}
 
 function init(){
   board=Array(4).fill().map(()=>Array(4).fill(0));
-  score=0;bestBlock=0;dead=false;history=[];
-  overEl.style.display='none';achEl.textContent='';tileEl.textContent='-';
-  scEl.textContent=score;add();add();draw();
+  score=0;bestBlock=0;dead=false;history=[];moves=0;
+  overEl.style.display='none';achEl.textContent='';tileEl.textContent='-';movesEl.textContent='0';
+  scEl.textContent=score;progressEl.style.width='0%';
+  add();add();draw();
 }
 
 function add(){
@@ -111,19 +149,23 @@ function add(){
 
 function draw(){
   B.innerHTML='';
+  const gap=6,size=68;
   board.forEach((r,y)=>r.forEach((v,x)=>{
     const t=document.createElement('div');t.className='tile';
-    if(v){
-      t.innerHTML=`<span class="num">${Math.pow(2,v)}</span><span class="emoji">${EMO[Math.min(v-1,EMO.length-1)]}</span>`;
-      t.setAttribute('data-v',Math.pow(2,v));
-    }
+    if(v){t.textContent=Math.pow(2,v);t.setAttribute('data-v',Math.pow(2,v))}
+    t.style.left=(x*(size+gap)+8)+'px';t.style.top=(y*(size+gap)+8)+'px';
     B.appendChild(t);
   }));
 }
 
+function updateProgress(){
+  const pct=Math.min(100,Math.floor((bestBlock/11)*100));
+  progressEl.style.width=pct+'%';
+}
+
 function move(dir){
   if(dead)return;
-  history.push({board:JSON.stringify(board),score,bestBlock});
+  history.push({board:JSON.stringify(board),score,bestBlock,moves});
   let moved=false,merged=false;const old=JSON.stringify(board);
   for(let r=0;r<dir;r++)board=board[0].map((_,i)=>board.map(row=>row[i]).reverse());
   for(let y=0;y<4;y++){
@@ -131,23 +173,20 @@ function move(dir){
     for(let x=0;x<row.length-1;x++){
       if(row[x]===row[x+1]){
         row[x]++;const val=Math.pow(2,row[x]);score+=val;merged=true;
-        if(row[x]>bestBlock){bestBlock=row[x];tileEl.textContent=EMO[Math.min(bestBlock-1,EMO.length-1)]+' '+Math.pow(2,bestBlock)}
-        if(ACH[val]){achEl.textContent=ACH[val];setTimeout(()=>achEl.textContent='',2000)}
+        if(row[x]>bestBlock){bestBlock=row[x];tileEl.textContent=Math.pow(2,bestBlock);updateProgress()}
+        if(ACH[val]){achEl.textContent=ACH[val]+' '+randWord();setTimeout(()=>achEl.textContent='',2000)}
+        sndMerge(row[x]);
         row.splice(x+1,1);row.push(0);moved=true;
       }
     }
     while(row.length<4)row.push(0);board[y]=row;
   }
   for(let r=0;r<(4-dir)%4;r++)board=board[0].map((_,i)=>board.map(row=>row[i]).reverse());
-  if(JSON.stringify(board)!==old){add();draw();scEl.textContent=score;beep(merged?600:300,merged?.12:.06,merged?.1:.05)}
+  if(JSON.stringify(board)!==old){
+    moves++;movesEl.textContent=moves;
+    if(!merged)sndMove();add();draw();scEl.textContent=score;
+  }
   if(checkEnd())end();
-}
-
-function undo(){
-  if(dead||history.length===0)return;
-  const prev=history.pop();board=JSON.parse(prev.board);score=prev.score;bestBlock=prev.bestBlock;
-  scEl.textContent=score;tileEl.textContent=bestBlock?EMO[Math.min(bestBlock-1,EMO.length-1)]+' '+Math.pow(2,bestBlock):'-';
-  dead=false;overEl.style.display='none';draw();beep(200,.05,.04);
 }
 
 function checkEnd(){
@@ -160,16 +199,21 @@ function checkEnd(){
 }
 
 function end(){
-  dead=true;if(score>best){best=score;localStorage.setItem('lolych2048_best',best);bestEl.textContent=best}
-  fsEl.textContent=score;fbEl.textContent=best;
-  fb2El.textContent=bestBlock?EMO[Math.min(bestBlock-1,EMO.length-1)]+' '+Math.pow(2,bestBlock):'-';
-  overEl.style.display='flex';beep(150,.3,.12);
+  dead=true;sndEnd();
+  if(score>best){best=score;localStorage.setItem('lolych2048_best',best);bestEl.textContent=best}
+  fsEl.textContent=score;fbEl.textContent=best;fmEl.textContent=moves;
+  fb2El.textContent=bestBlock?Math.pow(2,bestBlock):'-';overEl.style.display='flex';
 }
 
-function restart(){init();beep(400,.06,.05)}
+function restart(){sndRestart();init()}
 function share(){
-  const t=`🎮 2048 Лолыч! Мой счёт: ${score} (рекорд: ${best}). Играй: @Lolych_bot`;
+  const t=`🎮 2048 Лолыч! Счёт: ${score} (рекорд: ${best}). Играй: @Lolych_bot`;
   window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(t)}`);
+}
+
+function setSkin(s){
+  document.body.className=s;
+  localStorage.setItem('lolych2048_skin',s);
 }
 
 // Кнопки
@@ -193,9 +237,10 @@ document.addEventListener('keydown',e=>{
   if(dead)return;
   if(e.key==='ArrowLeft')move(0);if(e.key==='ArrowRight')move(2);
   if(e.key==='ArrowUp')move(3);if(e.key==='ArrowDown')move(1);
-  if(e.key==='z'&&e.ctrlKey){e.preventDefault();undo()}
 });
 
+// Загружаем скин
+const savedSkin=localStorage.getItem('lolych2048_skin')||'dark';setSkin(savedSkin);
 init();
 </script>
 </body>
