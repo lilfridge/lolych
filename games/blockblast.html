@@ -5,510 +5,271 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Лолыч Бласт</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0f0f1a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    touch-action: manipulation;
-    user-select: none;
-    padding: 10px;
-  }
-  #header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  #header .logo { font-size: 28px; }
-  #header .title { color: #e94560; font-size: 22px; font-weight: bold; }
-  #score-panel {
-    display: flex;
-    justify-content: space-between;
-    width: 296px;
-    color: #ccc;
-    font-size: 13px;
-    margin-bottom: 6px;
-  }
-  #combo-text {
-    color: #f0c040;
-    font-size: 15px;
-    font-weight: bold;
-    height: 22px;
-    margin-bottom: 6px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #game-board {
-    display: grid;
-    grid-template-columns: repeat(8, 32px);
-    grid-template-rows: repeat(8, 32px);
-    gap: 3px;
-    background: #1a1a2e;
-    padding: 6px;
-    border-radius: 10px;
-    touch-action: none;
-  }
-  .cell {
-    width: 32px;
-    height: 32px;
-    background: #252540;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    transition: background 0.07s;
-  }
-  .cell.filled   { background: #2e4a3e; animation: pop 0.15s ease; }
-  .cell.preview  { background: #3a6a56; }
-  .cell.invalid  { background: #5a2a2a; }
-  @keyframes pop {
-    0%   { transform: scale(0.6); }
-    100% { transform: scale(1);   }
-  }
-  #pieces-container {
-    display: flex;
-    gap: 10px;
-    margin-top: 14px;
-    justify-content: center;
-    align-items: center;
-    height: 110px;
-  }
-  .piece-slot {
-    background: #1a1a2e;
-    border-radius: 10px;
-    border: 2px solid transparent;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 8px;
-    min-width: 82px;
-    min-height: 82px;
-    transition: 0.15s;
-    flex-shrink: 0;
-    position: relative;
-  }
-  .piece-slot.selected { border-color: #e94560; }
-  .piece-slot.used { opacity: 0.25; }
-  .piece-grid {
-    display: grid;
-    gap: 2px;
-  }
-  .piece-cell {
-    width: 22px;
-    height: 22px;
-    background: #252540;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-  }
-  .piece-cell.active { background: #2e4a3e; }
-  .dragging-piece {
-    position: fixed;
-    z-index: 99999;
-    pointer-events: none;
-    transform: scale(1.18);
-    transition: transform 0.05s;
-    opacity: 0.95;
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4));
-  }
-  #hint {
-    color: #555;
-    font-size: 12px;
-    margin-top: 8px;
-    height: 16px;
-    text-align: center;
-  }
-  #game-over {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.88);
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    color: white;
-  }
-  #game-over h2  { font-size: 30px; color: #e94560; margin-bottom: 10px; }
-  #game-over p   { font-size: 16px; margin: 5px 0; }
-  #game-over button {
-    background: #e94560;
-    color: white;
-    border: none;
-    padding: 10px 28px;
-    font-size: 16px;
-    border-radius: 8px;
-    margin: 8px 4px 0;
-    cursor: pointer;
-  }
-  #game-over button.share { background: #25D366; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#0f0f1a;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:100vh;font-family:Arial,sans-serif;
+  touch-action:manipulation;user-select:none;padding:10px;
+}
+#header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#header .logo{font-size:28px}
+#header .title{color:#e94560;font-size:22px;font-weight:bold}
+#score-panel{display:flex;justify-content:space-between;width:296px;color:#ccc;font-size:13px;margin-bottom:6px}
+#combo{color:#f0c040;font-size:15px;font-weight:bold;height:22px;text-align:center}
+#board{
+  display:grid;grid-template-columns:repeat(8,32px);grid-template-rows:repeat(8,32px);
+  gap:3px;background:#1a1a2e;padding:6px;border-radius:10px;touch-action:none;
+}
+.cell{width:32px;height:32px;background:#252540;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.cell.filled{background:#2e4a3e;animation:pop .15s}
+.cell.highlight{background:#3a6a56}
+.cell.invalid{background:#5a2a2a}
+@keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+#pieces{display:flex;gap:10px;margin-top:14px;justify-content:center;align-items:center;height:100px}
+.piece{
+  background:#1a1a2e;border-radius:10px;border:2px solid transparent;
+  display:flex;align-items:center;justify-content:center;padding:8px;
+  min-width:80px;min-height:80px;cursor:grab;transition:.15s;
+}
+.piece.selected{border-color:#e94560}
+.piece.used{opacity:.25;pointer-events:none}
+.piece-grid{display:grid;gap:2px}
+.pcell{width:22px;height:22px;background:#252540;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.pcell.on{background:#2e4a3e}
+.drag{
+  position:fixed;z-index:99999;pointer-events:none;transform:scale(1.15);
+  opacity:.9;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5));
+}
+#hint{color:#555;font-size:12px;margin-top:8px;height:16px;text-align:center}
+#over{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  flex-direction:column;align-items:center;justify-content:center;z-index:10;color:#fff;
+}
+#over h2{font-size:30px;color:#e94560;margin-bottom:10px}
+#over p{font-size:16px;margin:5px 0}
+#over button{background:#e94560;color:#fff;border:none;padding:10px 28px;font-size:16px;border-radius:8px;margin:8px 4px 0;cursor:pointer}
+#over .share{background:#25D366}
 </style>
 </head>
 <body>
-<div id="header">
-  <span class="logo">🃏</span>
-  <span class="title">Лолыч Бласт</span>
-</div>
-<div id="score-panel">
-  <span>🏆 <span id="score">0</span></span>
-  <span>🔥 Рекорд: <span id="best">0</span></span>
-</div>
-<div id="combo-text"></div>
-<div id="game-board"></div>
-<div id="pieces-container"></div>
+<div id="header"><span class="logo">🃏</span><span class="title">Лолыч Бласт</span></div>
+<div id="score-panel"><span>🏆 <b id="score">0</b></span><span>🔥 Рекорд: <b id="best">0</b></span></div>
+<div id="combo"></div>
+<div id="board"></div>
+<div id="pieces"></div>
 <div id="hint">Выбери фигуру, затем тапни на поле</div>
-<div id="game-over">
+<div id="over">
   <h2>жто не не!</h2>
-  <p>Счёт: <span id="final-score">0</span></p>
-  <p>🔥 Лучший: <span id="final-best">0</span></p>
+  <p>Счёт: <b id="fs">0</b></p>
+  <p>🔥 Лучший: <b id="fb">0</b></p>
   <button onclick="restart()">🔄 Ещё раз</button>
   <button class="share" onclick="share()">📤 Поделиться</button>
 </div>
 
 <script>
-const SIZE  = 8;
-const EMOJIS = ['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️','👾','🎃','🤖','👽'];
-const PHRASES = ['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','АБСУРД!','🤡','ОГОНЬ!'];
+const S=8;
+const EMO=['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🫃','🧌','☠️','👾','🎃','🤖','👽'];
+const PHR=['СГЛЫПА!','67!','жто не не!','WTF!','ЛОЛЫЧ!','МОЩНО!','🤡'];
 
-const SHAPES = [
-  [[1]],
-  [[1,1]], [[1],[1]],
-  [[1,1,1]], [[1],[1],[1]],
-  [[1,1,1,1]], [[1],[1],[1],[1]],
-  [[1,1,1,1,1]], [[1],[1],[1],[1],[1]],
-  [[1,1],[1,1]],
-  [[1,1,1],[1,1,1]], [[1,1],[1,1],[1,1]],
-  [[1,1,1],[1,1,1],[1,1,1]],
-  [[1,0],[1,1]], [[0,1],[1,1]], [[1,1],[1,0]], [[1,1],[0,1]],
-  [[1,0],[1,0],[1,1]], [[0,1],[0,1],[1,1]],
-  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]],
-  [[1,1,1],[1,0,0]], [[1,1,1],[0,0,1]], [[0,0,1],[1,1,1]], [[1,0,0],[1,1,1]],
-  [[1,0,0],[1,0,0],[1,1,1]], [[0,0,1],[0,0,1],[1,1,1]],
-  [[1,1,1],[1,0,0],[1,0,0]], [[1,1,1],[0,0,1],[0,0,1]],
-  [[1,1,1],[0,1,0]], [[0,1,0],[1,1,1]], [[1,0],[1,1],[1,0]], [[0,1],[1,1],[0,1]],
-  [[0,1,1],[1,1,0]], [[1,1,0],[0,1,1]], [[1,0],[1,1],[0,1]], [[0,1],[1,1],[1,0]],
-  [[1,0,1],[1,1,1]], [[1,1],[1,1],[1,0]], [[1,1],[1,1],[0,1]],
-  [[1,1,0],[0,1,0],[0,1,0]], [[0,1,1],[0,1,0],[0,1,0]],
-  [[1,1],[1,0],[1,0]], [[1,1],[0,1],[0,1]],
-  [[0,1,0],[0,1,0],[1,1,0]], [[0,1,0],[0,1,0],[0,1,1]],
+// Фигуры как массивы координат [x,y] от левого верхнего угла
+const SHAPES=[
+  [[0,0]], // 1
+  [[0,0],[1,0]], [[0,0],[0,1]], // 2
+  [[0,0],[1,0],[2,0]], [[0,0],[0,1],[0,2]], // 3
+  [[0,0],[1,0],[2,0],[3,0]], [[0,0],[0,1],[0,2],[0,3]], // 4
+  [[0,0],[1,0],[2,0],[3,0],[4,0]], [[0,0],[0,1],[0,2],[0,3],[0,4]], // 5
+  [[0,0],[1,0],[0,1],[1,1]], // квадрат 2x2
+  [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1]], // 2x3
+  [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]], // 3x2
+  [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]], // 3x3
+  [[0,0],[0,1],[1,1]], [[1,0],[0,1],[1,1]], [[0,0],[1,0],[0,1]], [[0,0],[1,0],[1,1]], // L/J малые
+  [[0,0],[0,1],[0,2],[1,2]], [[1,0],[1,1],[1,2],[0,2]], // L/J
+  [[0,0],[1,0],[0,1],[0,2]], [[0,0],[1,0],[1,1],[1,2]], // L/J 2
+  [[0,0],[1,0],[2,0],[2,1]], [[0,1],[1,1],[2,1],[2,0]], // L/J 3
+  [[0,2],[0,1],[0,0],[1,0]], [[0,0],[0,1],[0,2],[1,0]], // L/J 4
+  [[0,0],[0,1],[0,2],[1,2],[2,2]], [[2,0],[2,1],[2,2],[1,2],[0,2]], // большой L/J
+  [[0,0],[1,0],[2,0],[0,1],[0,2]], [[0,0],[1,0],[2,0],[2,1],[2,2]], // большой L/J 2
+  [[0,0],[1,0],[2,0],[1,1]], [[1,0],[0,1],[1,1],[2,1]], // T
+  [[0,0],[0,1],[0,2],[1,1]], [[1,0],[1,1],[1,2],[0,1]], // T пов
+  [[1,0],[2,0],[0,1],[1,1]], [[0,0],[1,0],[1,1],[2,1]], // S/Z
+  [[0,0],[0,1],[1,1],[1,2]], [[1,0],[1,1],[0,1],[0,2]], // S/Z верт
+  [[0,0],[2,0],[0,1],[1,1],[2,1]], // U
+  [[0,0],[0,1],[0,2],[1,2],[2,2]], // V
+  [[0,0],[1,0],[0,1],[1,1],[0,2]], [[0,0],[1,0],[0,1],[1,1],[1,2]], // P
+  [[0,1],[0,2],[1,0],[1,1]], [[0,0],[0,1],[1,1],[1,2]], // ступенька
 ];
 
-function trimShape(shape) {
-  let minX = Infinity, minY = Infinity, maxX = -1, maxY = -1;
-  for (let y = 0; y < shape.length; y++) {
-    for (let x = 0; x < shape[y].length; x++) {
-      if (shape[y][x]) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
+let board,score,combo,best=parseInt(localStorage.getItem('lolych_best')||'0');
+let hand=[null,null,null],sel=-1,dead=false;
+let dragEl=null,dragShape=null,dragEmoji='';
+
+const B=document.getElementById('board'),P=document.getElementById('pieces');
+const scEl=document.getElementById('score'),bestEl=document.getElementById('best');
+const comboEl=document.getElementById('combo'),hintEl=document.getElementById('hint');
+const overEl=document.getElementById('over'),fsEl=document.getElementById('fs'),fbEl=document.getElementById('fb');
+bestEl.textContent=best;
+
+function randShape(){return SHAPES[Math.floor(Math.random()*SHAPES.length)]}
+function randEmoji(){return EMO[Math.floor(Math.random()*EMO.length)]}
+
+function init(){
+  board=Array(S).fill().map(()=>Array(S).fill(''));
+  score=0;combo=0;sel=-1;dead=false;
+  overEl.style.display='none';comboEl.textContent='';hintEl.textContent='Выбери фигуру, затем тапни на поле';
+  scEl.textContent=score;
+  hand=[null,null,null];refill();drawBoard();drawHand();
+}
+
+function refill(){for(let i=0;i<3;i++)if(!hand[i])hand[i]={shape:randShape(),emoji:randEmoji()}}
+
+function drawBoard(){
+  B.innerHTML='';
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const c=document.createElement('div');
+    c.className='cell'+(board[y][x]?' filled':'');
+    c.textContent=board[y][x]||'';
+    c.addEventListener('pointerenter',()=>preview(x,y));
+    c.addEventListener('pointerleave',clearPrev);
+    c.addEventListener('pointerup',e=>{e.stopPropagation();if(sel>=0&&hand[sel]&&!dead){put(x,y);clearPrev()}});
+    B.appendChild(c);
+  }
+}
+
+function cell(x,y){return B.children[y*S+x]}
+
+function preview(px,py){
+  clearPrev();
+  if(sel<0||!hand[sel]||dead)return;
+  const sh=hand[sel].shape;let ok=true;
+  for(const [sx,sy] of sh){
+    const nx=px+sx,ny=py+sy;
+    if(nx<0||nx>=S||ny<0||ny>=S){ok=false;continue}
+    if(board[ny][nx])ok=false;
+  }
+  for(const [sx,sy] of sh){
+    const nx=px+sx,ny=py+sy;
+    if(nx<0||nx>=S||ny<0||ny>=S)continue;
+    cell(nx,ny).classList.add(ok?'highlight':'invalid');
+  }
+}
+
+function clearPrev(){for(const c of B.children)c.classList.remove('highlight','invalid')}
+
+function drawHand(){
+  P.innerHTML='';
+  for(let i=0;i<3;i++){
+    const s=document.createElement('div');
+    s.className='piece'+(i===sel?' selected':'');
+    if(!hand[i]){s.classList.add('used');P.appendChild(s);continue}
+    const sh=hand[i].shape;
+    const maxX=Math.max(...sh.map(p=>p[0]));const maxY=Math.max(...sh.map(p=>p[1]));
+    const g=document.createElement('div');g.className='piece-grid';
+    g.style.gridTemplateColumns=`repeat(${maxX+1},22px)`;g.style.gridTemplateRows=`repeat(${maxY+1},22px)`;
+    const grid=Array(maxY+1).fill().map(()=>Array(maxX+1).fill(false));
+    for(const [x,y] of sh)grid[y][x]=true;
+    for(let y=0;y<=maxY;y++)for(let x=0;x<=maxX;x++){
+      const c=document.createElement('div');c.className='pcell'+(grid[y][x]?' on':'');
+      if(grid[y][x])c.textContent=hand[i].emoji;g.appendChild(c);
+    }
+    s.appendChild(g);
+    s.onpointerdown=e=>{e.preventDefault();startDrag(i,e)};
+    P.appendChild(s);
+  }
+}
+
+/* ── DRAG ── */
+function startDrag(i,e){
+  if(!hand[i]||dead)return;sel=i;P.children[i].style.visibility='hidden';
+  dragShape=hand[i].shape;dragEmoji=hand[i].emoji;
+  dragEl=document.createElement('div');dragEl.className='piece-grid drag';
+  const maxX=Math.max(...dragShape.map(p=>p[0]));const maxY=Math.max(...dragShape.map(p=>p[1]));
+  dragEl.style.gridTemplateColumns=`repeat(${maxX+1},22px)`;dragEl.style.gridTemplateRows=`repeat(${maxY+1},22px)`;
+  const grid=Array(maxY+1).fill().map(()=>Array(maxX+1).fill(false));
+  for(const [x,y] of dragShape)grid[y][x]=true;
+  for(let y=0;y<=maxY;y++)for(let x=0;x<=maxX;x++){
+    const c=document.createElement('div');c.className='pcell'+(grid[y][x]?' on':'');
+    if(grid[y][x])c.textContent=dragEmoji;dragEl.appendChild(c);
+  }
+  document.body.appendChild(dragEl);moveDrag(e);
+  window.addEventListener('pointermove',moveDrag);window.addEventListener('pointerup',drop);
+}
+
+function moveDrag(e){
+  if(!dragEl)return;
+  dragEl.style.left=(e.clientX-dragEl.offsetWidth/2)+'px';
+  dragEl.style.top=(e.clientY-dragEl.offsetHeight/2)+'px';
+  clearPrev();
+  const r=B.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+  const cell=B.firstChild;const cr=cell.getBoundingClientRect();
+  const gap=parseFloat(getComputedStyle(B).gap);const sz=cr.width+gap;
+  const x=Math.floor((e.clientX-r.left)/sz);const y=Math.floor((e.clientY-r.top)/sz);
+  preview(x,y);
+}
+
+function drop(e){
+  window.removeEventListener('pointermove',moveDrag);window.removeEventListener('pointerup',drop);
+  if(dragEl){dragEl.remove();dragEl=null}
+  const r=B.getBoundingClientRect();
+  if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){
+    const cell=B.firstChild;const cr=cell.getBoundingClientRect();
+    const gap=parseFloat(getComputedStyle(B).gap);const sz=cr.width+gap;
+    const x=Math.floor((e.clientX-r.left)/sz);const y=Math.floor((e.clientY-r.top)/sz);
+    put(x,y);
+  }
+  clearPrev();if(hand[sel])drawHand();
+}
+
+/* ── PLACE ── */
+function put(px,py){
+  if(sel<0||!hand[sel]||dead)return;
+  const sh=hand[sel].shape;const em=hand[sel].emoji;
+  for(const [sx,sy] of sh){
+    const nx=px+sx,ny=py+sy;
+    if(nx<0||nx>=S||ny<0||ny>=S)return;
+    if(board[ny][nx])return;
+  }
+  let cells=0;
+  for(const [sx,sy] of sh){board[py+sy][px+sx]=em;cells++}
+  score+=cells;hand[sel]=null;sel=-1;
+  let cleared=0;
+  const ry=[],cx=[];
+  for(let y=0;y<S;y++)if(board[y].every(c=>c))ry.push(y);
+  for(let x=0;x<S;x++)if(board.every(r=>r[x]))cx.push(x);
+  cleared=ry.length+cx.length;
+  if(cleared>0){combo++;score+=cleared*10*combo;comboEl.textContent=PHR[Math.floor(Math.random()*PHR.length)];setTimeout(()=>comboEl.textContent='',1500)}
+  else combo=0;
+  for(const y of ry)board[y].fill('');
+  for(const x of cx)for(let y=0;y<S;y++)board[y][x]='';
+  scEl.textContent=score;drawBoard();
+  if(hand.every(p=>!p))refill();drawHand();
+  if(checkEnd())end();
+}
+
+function checkEnd(){
+  for(const p of hand){
+    if(!p)continue;
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      let ok=true;
+      for(const [sx,sy] of p.shape){const nx=x+sx,ny=y+sy;if(nx<0||nx>=S||ny<0||ny>=S||board[ny][nx]){ok=false;break}}
+      if(ok)return false;
     }
   }
-  if (minX === Infinity) return [[]];
-  return shape
-    .slice(minY, maxY + 1)
-    .map(row => row.slice(minX, maxX + 1));
+  return true;
 }
 
-let board = [], score = 0, combo = 0;
-let bestScore = parseInt(localStorage.getItem('lolych_best') || '0');
-let pieces = [null, null, null];
-let selectedIndex = -1;
-let isGameOver = false;
-let dragClone = null;
-let dragShape = null;
-let dragEmoji = "";
-
-const boardEl      = document.getElementById('game-board');
-const piecesEl     = document.getElementById('pieces-container');
-const scoreEl      = document.getElementById('score');
-const bestEl       = document.getElementById('best');
-const comboEl      = document.getElementById('combo-text');
-const hintEl       = document.getElementById('hint');
-const gameOverEl   = document.getElementById('game-over');
-const finalScoreEl = document.getElementById('final-score');
-const finalBestEl  = document.getElementById('final-best');
-
-bestEl.textContent = bestScore;
-
-function initGame() {
-  board         = Array(SIZE).fill(null).map(() => Array(SIZE).fill(''));
-  score         = 0;
-  combo         = 0;
-  selectedIndex = -1;
-  isGameOver    = false;
-  gameOverEl.style.display = 'none';
-  comboEl.textContent      = '';
-  hintEl.textContent       = 'Выбери фигуру, затем тапни на поле';
-  updateScore();
-  renderBoard();
-  pieces = [null, null, null];
-  refillPieces();
-  renderPieces();
+function end(){
+  dead=true;if(score>best){best=score;localStorage.setItem('lolych_best',best);bestEl.textContent=best}
+  fsEl.textContent=score;fbEl.textContent=best;overEl.style.display='flex';
 }
 
-function refillPieces() {
-  for (let i = 0; i < 3; i++) {
-    if (!pieces[i]) pieces[i] = randomPiece();
-  }
+function restart(){init()}
+function share(){
+  const t=`🃏 Лолыч Бласт! Мой счёт: ${score} (рекорд: ${best}). Играй: @Lolych_bot`;
+  window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(t)}`);
 }
 
-function randomPiece() {
-  const raw = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-  return {
-    shape: trimShape(raw),
-    emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)]
-  };
-}
-
-function renderBoard() {
-  boardEl.innerHTML = '';
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell' + (board[y][x] ? ' filled' : '');
-      cell.textContent = board[y][x] || '';
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-      cell.addEventListener('pointerenter', () => showPreview(x, y));
-      cell.addEventListener('pointerleave', clearPreview);
-      cell.addEventListener('pointerup', (e) => {
-        e.stopPropagation();
-        if (selectedIndex >= 0 && pieces[selectedIndex] && !isGameOver) {
-          placePiece(x, y);
-          clearPreview();
-        }
-      });
-      boardEl.appendChild(cell);
-    }
-  }
-}
-
-function cellEl(x, y) {
-  return boardEl.children[y * SIZE + x];
-}
-
-function showPreview(px, py) {
-  clearPreview();
-  if (selectedIndex < 0 || !pieces[selectedIndex] || isGameOver) return;
-  const shape = pieces[selectedIndex].shape;
-  let valid = true;
-  for (let sy = 0; sy < shape.length; sy++) {
-    for (let sx = 0; sx < shape[0].length; sx++) {
-      if (!shape[sy][sx]) continue;
-      const x = px + sx, y = py + sy;
-      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) { valid = false; continue; }
-      if (board[y][x]) valid = false;
-    }
-  }
-  for (let sy = 0; sy < shape.length; sy++) {
-    for (let sx = 0; sx < shape[0].length; sx++) {
-      if (!shape[sy][sx]) continue;
-      const x = px + sx, y = py + sy;
-      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) continue;
-      cellEl(x, y).classList.add(valid ? 'preview' : 'invalid');
-    }
-  }
-}
-
-function clearPreview() {
-  for (const el of boardEl.children) {
-    el.classList.remove('preview', 'invalid');
-  }
-}
-
-function renderPieces() {
-  piecesEl.innerHTML = '';
-  for (let idx = 0; idx < 3; idx++) {
-    const slot = document.createElement('div');
-    slot.className = 'piece-slot' + (idx === selectedIndex ? ' selected' : '');
-    const p = pieces[idx];
-    if (!p) {
-      slot.classList.add('used');
-      piecesEl.appendChild(slot);
-      continue;
-    }
-    const grid = document.createElement('div');
-    grid.className = 'piece-grid';
-    const shape = p.shape;
-    grid.style.gridTemplateColumns = `repeat(${shape[0].length}, 22px)`;
-    grid.style.gridTemplateRows    = `repeat(${shape.length}, 22px)`;
-    for (let sy = 0; sy < shape.length; sy++) {
-      for (let sx = 0; sx < shape[0].length; sx++) {
-        const c = document.createElement('div');
-        c.className = 'piece-cell' + (shape[sy][sx] ? ' active' : '');
-        if (shape[sy][sx]) c.textContent = p.emoji;
-        grid.appendChild(c);
-      }
-    }
-    slot.appendChild(grid);
-    slot.onpointerdown = (e) => {
-      e.preventDefault();
-      startDrag(idx, e);
-    };
-    piecesEl.appendChild(slot);
-  }
-}
-
-/* ─── DRAG & DROP ────────────────────────────── */
-function startDrag(index, e) {
-  if (!pieces[index] || isGameOver) return;
-  selectedIndex = index;
-  piecesEl.children[index].style.visibility = 'hidden';
-  dragShape = pieces[index].shape;
-  dragEmoji = pieces[index].emoji;
-  dragClone = document.createElement('div');
-  dragClone.className = 'piece-grid dragging-piece';
-  dragClone.style.gridTemplateColumns = `repeat(${dragShape[0].length}, 22px)`;
-  dragClone.style.gridTemplateRows    = `repeat(${dragShape.length}, 22px)`;
-  for (let y = 0; y < dragShape.length; y++) {
-    for (let x = 0; x < dragShape[0].length; x++) {
-      const c = document.createElement('div');
-      c.className = 'piece-cell';
-      if (dragShape[y][x]) { c.classList.add('active'); c.textContent = dragEmoji; }
-      dragClone.appendChild(c);
-    }
-  }
-  document.body.appendChild(dragClone);
-  moveDrag(e);
-  window.addEventListener('pointermove', moveDrag);
-  window.addEventListener('pointerup', dropPiece);
-}
-
-function moveDrag(e) {
-  if (!dragClone) return;
-  const w = dragClone.offsetWidth;
-  const h = dragClone.offsetHeight;
-  dragClone.style.left = (e.clientX - w / 2) + 'px';
-  dragClone.style.top  = (e.clientY - h / 2) + 'px';
-  clearPreview();
-  const rect = boardEl.getBoundingClientRect();
-  if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
-  const cell = boardEl.querySelector('.cell');
-  const cellRect = cell.getBoundingClientRect();
-  const gap = parseFloat(getComputedStyle(boardEl).gap);
-  const size = cellRect.width + gap;
-  const x = Math.floor((e.clientX - rect.left) / size);
-  const y = Math.floor((e.clientY - rect.top) / size);
-  showPreview(x, y);
-}
-
-function dropPiece(e) {
-  window.removeEventListener('pointermove', moveDrag);
-  window.removeEventListener('pointerup', dropPiece);
-  if (dragClone) { dragClone.remove(); dragClone = null; }
-  const rect = boardEl.getBoundingClientRect();
-  if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-    const cell = boardEl.querySelector('.cell');
-    const cellRect = cell.getBoundingClientRect();
-    const gap = parseFloat(getComputedStyle(boardEl).gap);
-    const size = cellRect.width + gap;
-    const x = Math.floor((e.clientX - rect.left) / size);
-    const y = Math.floor((e.clientY - rect.top) / size);
-    placePiece(x, y);
-  }
-  clearPreview();
-  if (pieces[selectedIndex]) renderPieces();
-}
-
-/* ─── PLACE PIECE ──────────────────────────────── */
-function placePiece(px, py) {
-  if (selectedIndex < 0 || !pieces[selectedIndex] || isGameOver) return;
-  const { shape, emoji } = pieces[selectedIndex];
-  const h = shape.length, w = shape[0].length;
-
-  for (let sy = 0; sy < h; sy++) {
-    for (let sx = 0; sx < w; sx++) {
-      if (!shape[sy][sx]) continue;
-      const x = px + sx, y = py + sy;
-      if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
-      if (board[y][x]) return;
-    }
-  }
-
-  let cells = 0;
-  for (let sy = 0; sy < h; sy++)
-    for (let sx = 0; sx < w; sx++)
-      if (shape[sy][sx]) { board[py+sy][px+sx] = emoji; cells++; }
-
-  score += cells;
-  pieces[selectedIndex] = null;
-  selectedIndex = -1;
-  hintEl.textContent = 'Выбери фигуру, затем тапни на поле';
-
-  let cleared = 0;
-  const rowsToClear = [], colsToClear = [];
-  for (let y = 0; y < SIZE; y++)
-    if (board[y].every(c => c)) rowsToClear.push(y);
-  for (let x = 0; x < SIZE; x++)
-    if (board.every(r => r[x])) colsToClear.push(x);
-  cleared = rowsToClear.length + colsToClear.length;
-
-  if (cleared > 0) {
-    combo++;
-    score += cleared * 10 * combo;
-    comboEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-    setTimeout(() => { comboEl.textContent = ''; }, 1600);
-  } else {
-    combo = 0;
-  }
-
-  for (const y of rowsToClear) board[y].fill('');
-  for (const x of colsToClear) for (let y = 0; y < SIZE; y++) board[y][x] = '';
-
-  updateScore();
-  renderBoard();
-  if (pieces.every(p => !p)) refillPieces();
-  renderPieces();
-  if (checkGameOver()) endGame();
-}
-
-function checkGameOver() {
-  return pieces.every(p => {
-    if (!p) return true;
-    const h = p.shape.length, w = p.shape[0].length;
-    for (let y = 0; y <= SIZE - h; y++)
-      for (let x = 0; x <= SIZE - w; x++) {
-        let fits = true;
-        for (let sy = 0; sy < h && fits; sy++)
-          for (let sx = 0; sx < w && fits; sx++)
-            if (p.shape[sy][sx] && board[y+sy][x+sx]) fits = false;
-        if (fits) return false;
-      }
-    return true;
-  });
-}
-
-function endGame() {
-  isGameOver = true;
-  if (score > bestScore) {
-    bestScore = score;
-    localStorage.setItem('lolych_best', bestScore);
-    bestEl.textContent = bestScore;
-  }
-  finalScoreEl.textContent = score;
-  finalBestEl.textContent  = bestScore;
-  gameOverEl.style.display = 'flex';
-}
-
-function updateScore() { scoreEl.textContent = score; }
-function restart() { initGame(); }
-
-function share() {
-  const text = `🃏 Лолыч Бласт! Мой счёт: ${score} (рекорд: ${bestScore}). Играй: @Lolych_bot`;
-  window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(text)}`);
-}
-
-initGame();
+init();
 </script>
 </body>
 </html>
