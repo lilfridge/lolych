@@ -2,13 +2,27 @@
 <html>
 <head>
 <title>Snake</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{margin:0;background:#000;display:flex;justify-content:center;align-items:center;height:100vh}
+body{margin:0;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh}
 canvas{background:#111}
+#btns{display:grid;grid-template-columns:60px 60px 60px;grid-template-rows:60px 60px;gap:5px;margin-top:10px}
+button{background:#333;color:#fff;border:none;font-size:24px;border-radius:8px}
+button:active{background:#555}
+#up{grid-column:2;grid-row:1}
+#left{grid-column:1;grid-row:2}
+#right{grid-column:3;grid-row:2}
+#down{grid-column:2;grid-row:2}
 </style>
 </head>
 <body>
 <canvas id="g"></canvas>
+<div id="btns">
+<button id="up">▲</button>
+<button id="left">◀</button>
+<button id="right">▶</button>
+<button id="down">▼</button>
+</div>
 <script>
 const c=document.getElementById('g'),ctx=c.getContext('2d'),s=20,w=400,h=400;
 c.width=w;c.height=h;
@@ -28,11 +42,16 @@ if(head.x===food.x&&head.y===food.y){sc++;food={x:Math.floor(Math.random()*w/s),
 else{snake.pop()}
 }
 setInterval(()=>{update();draw()},100);
+function setDir(x,y){if((dx===0||x===0)&&(dy===0||y===0)){dx=x;dy=y}}
+document.getElementById('up').addEventListener('click',()=>setDir(0,-1));
+document.getElementById('down').addEventListener('click',()=>setDir(0,1));
+document.getElementById('left').addEventListener('click',()=>setDir(-1,0));
+document.getElementById('right').addEventListener('click',()=>setDir(1,0));
 document.addEventListener('keydown',e=>{
-if(e.key==='ArrowUp'&&dy===0){dx=0;dy=-1}
-if(e.key==='ArrowDown'&&dy===0){dx=0;dy=1}
-if(e.key==='ArrowLeft'&&dx===0){dx=-1;dy=0}
-if(e.key==='ArrowRight'&&dx===0){dx=1;dy=0}
+if(e.key==='ArrowUp')setDir(0,-1);
+if(e.key==='ArrowDown')setDir(0,1);
+if(e.key==='ArrowLeft')setDir(-1,0);
+if(e.key==='ArrowRight')setDir(1,0);
 });
 </script>
 </body>
