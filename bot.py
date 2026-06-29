@@ -12,7 +12,7 @@ try:
 except: pass
 
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle, InputTextMessageContent
 import markovify
 import random
 import threading
@@ -695,6 +695,46 @@ def clear_menu():
     return txt, markup
 
 # ─── Приветствие ─────────────────────────────────────────────────────────────
+@bot.inline_handler(lambda query: len(query.query) > 0)
+def inline_query(query):
+    text = query.query.strip()
+    cid = query.from_user.id  # используем ID пользователя как chat_id
+    
+    results = []
+    
+    # 1. Мем
+    words = _chat_words(cid)
+    if words:
+        meme_text = absurd_word_salad(cid, length=random.randint(2, 5))
+        results.append(
+            InlineQueryResultArticle(
+                id="1", title="🖼 Мем", description=f"Создать мем: {meme_text[:50]}",
+                input_message_content=InputTextMessageContent("/meme"),
+                thumbnail_url="https://i.postimg.cc/qMz4QKYj/IMG-4826-2.png"
+            )
+        )
+    
+    # 2. Гифка
+    results.append(
+        InlineQueryResultArticle(
+            id="2", title="🎬 Гифка", description=f"Найти гифку: {text}",
+            input_message_content=InputTextMessageContent(f"/gif {text}"),
+            thumbnail_url="https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif"
+        )
+    )
+    
+    # 3. Микс
+    if words:
+        mixed = mix_messages(cid)
+        results.append(
+            InlineQueryResultArticle(
+                id="3", title="💬 Микс", description=f"Микс фраз: {mixed[:50]}",
+                input_message_content=InputTextMessageContent(mixed)
+            )
+        )
+    
+    bot.answer_inline_query(query.id, results[:10], cache_time=1)
+
 @bot.message_handler(content_types=["new_chat_members"])
 def handle_new_member(message):
     for member in message.new_chat_members:
