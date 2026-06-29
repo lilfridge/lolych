@@ -1,45 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-<title>2048</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>2048 Лолыч</title>
 <style>
-body{margin:0;background:#faf8ef;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:Arial}
-#game{width:300px;height:300px;background:#bbada0;border-radius:6px;display:grid;grid-template:repeat(4,1fr)/repeat(4,1fr);gap:8px;padding:8px}
-.tile{background:#cdc1b4;display:flex;justify-content:center;align-items:center;font-size:32px;font-weight:bold;border-radius:4px;color:#776e65}
-#score{font-size:20px;margin-bottom:10px}
-#btns{display:grid;grid-template-columns:60px 60px 60px;grid-template-rows:60px 60px;gap:5px;margin-top:10px}
-button{background:#8f7a66;color:#fff;border:none;font-size:24px;border-radius:8px}
-#up{grid-column:2;grid-row:1}
-#left{grid-column:1;grid-row:2}
-#right{grid-column:3;grid-row:2}
-#down{grid-column:2;grid-row:2}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#0f0f1a;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:100vh;font-family:Arial,sans-serif;
+  touch-action:manipulation;user-select:none;
+}
+#header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+#header .logo{font-size:28px}
+#header .title{color:#e94560;font-size:22px;font-weight:bold}
+#scores{display:flex;gap:20px;margin-bottom:10px;color:#ccc;font-size:14px}
+#board{
+  display:grid;grid-template-columns:repeat(4,60px);grid-template-rows:repeat(4,60px);
+  gap:6px;background:#1a1a2e;padding:8px;border-radius:10px;
+}
+.tile{
+  width:60px;height:60px;background:#252540;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  transition:transform .1s;
+}
+.tile[data-v="2"]{background:#2e4a3e}
+.tile[data-v="4"]{background:#3a6a56}
+.tile[data-v="8"]{background:#4a8a6e}
+.tile[data-v="16"]{background:#5aaa86}
+.tile[data-v="32"]{background:#6aca9e}
+.tile[data-v="64"]{background:#e94560}
+.tile[data-v="128"]{background:#ff6b6b}
+.tile[data-v="256"]{background:#ffd93d;color:#000}
+.tile[data-v="512"]{background:#6c5ce7}
+.tile[data-v="1024"]{background:#00cec9}
+.tile[data-v="2048"]{background:#ff9ff3}
+.tile.new{animation:pop .2s}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+#hint{color:#555;font-size:12px;margin-top:10px}
+#over{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  flex-direction:column;align-items:center;justify-content:center;z-index:10;color:#fff;
+}
+#over h2{font-size:30px;color:#e94560;margin-bottom:10px}
+#over p{font-size:16px;margin:5px 0}
+#over button{background:#e94560;color:#fff;border:none;padding:10px 28px;font-size:16px;border-radius:8px;margin:8px 4px 0;cursor:pointer}
+#over .share{background:#25D366}
 </style>
 </head>
 <body>
-<div id="score">Score: 0</div>
-<div id="game"></div>
-<div id="btns">
-<button id="up">▲</button><button id="left">◀</button><button id="right">▶</button><button id="down">▼</button>
+<div id="header"><span class="logo">🃏</span><span class="title">2048 Лолыч</span></div>
+<div id="scores"><span>🏆 <b id="score">0</b></span><span>🔥 Рекорд: <b id="best">0</b></span></div>
+<div id="board"></div>
+<div id="hint">Свайпай в любую сторону</div>
+<div id="over">
+  <h2>жто не не!</h2>
+  <p>Счёт: <b id="fs">0</b></p>
+  <p>🔥 Лучший: <b id="fb">0</b></p>
+  <button onclick="restart()">🔄 Ещё раз</button>
+  <button class="share" onclick="share()">📤 Поделиться</button>
 </div>
+
 <script>
-let board=Array(4).fill().map(()=>Array(4).fill(0)),score=0;
-function addTile(){const e=[];board.forEach((r,i)=>r.forEach((c,j)=>{if(c===0)e.push({i,j})}));if(e.length){const {i,j}=e[Math.floor(Math.random()*e.length)];board[i][j]=Math.random()<0.9?2:4}}
-function draw(){const g=document.getElementById('game');g.innerHTML='';board.forEach(r=>r.forEach(v=>{const t=document.createElement('div');t.className='tile';if(v>0){t.textContent=v;t.setAttribute('data-value',v)}g.appendChild(t)}));document.getElementById('score').textContent='Score: '+score}
-function move(dir){
-let moved=false;const old=JSON.parse(JSON.stringify(board));
-const rot=(b)=>{const n=Array(4).fill().map(()=>Array(4).fill(0));for(let i=0;i<4;i++)for(let j=0;j<4;j++)n[j][3-i]=b[i][j];return n}
-if(dir===0)board=rot(rot(board));if(dir===1)board=rot(rot(rot(board)));if(dir===3)board=rot(board);
-for(let i=0;i<4;i++){let row=board[i].filter(v=>v);for(let j=0;j<row.length-1;j++){if(row[j]===row[j+1]){row[j]*=2;score+=row[j];row.splice(j+1,1);row.push(0);moved=true}}while(row.length<4)row.push(0);board[i]=row}
-if(dir===0)board=rot(rot(board));if(dir===1)board=rot(board);if(dir===3)board=rot(rot(rot(board)));
-if(JSON.stringify(board)!==old){addTile();draw()}
+const EMO=['💀','🗿','🤡','🔥','😭','👀','💩','🧠','🫠','🧌','🃏'];
+let board,score,best=parseInt(localStorage.getItem('lolych2048_best')||'0');
+let dead=false;
+const B=document.getElementById('board'),scEl=document.getElementById('score'),bestEl=document.getElementById('best');
+const overEl=document.getElementById('over'),fsEl=document.getElementById('fs'),fbEl=document.getElementById('fb');
+bestEl.textContent=best;
+
+function init(){
+  board=Array(4).fill().map(()=>Array(4).fill(0));
+  score=0;dead=false;overEl.style.display='none';scEl.textContent=score;
+  add();add();draw();
 }
-addTile();addTile();draw();
-document.getElementById('up').addEventListener('click',()=>move(1));
-document.getElementById('down').addEventListener('click',()=>move(3));
-document.getElementById('left').addEventListener('click',()=>move(0));
-document.getElementById('right').addEventListener('click',()=>move(2));
-document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')move(0);if(e.key==='ArrowRight')move(2);if(e.key==='ArrowUp')move(1);if(e.key==='ArrowDown')move(3)});
+
+function add(){
+  const empty=[];board.forEach((r,y)=>r.forEach((v,x)=>{if(!v)empty.push([y,x])}));
+  if(empty.length){const [y,x]=empty[Math.floor(Math.random()*empty.length)];board[y][x]=1}
+}
+
+function draw(){
+  B.innerHTML='';
+  board.forEach(r=>r.forEach(v=>{
+    const t=document.createElement('div');t.className='tile'+(v?' new':'');
+    if(v){t.textContent=EMO[Math.min(v-1,EMO.length-1)];t.setAttribute('data-v',Math.pow(2,v))}
+    B.appendChild(t);
+  }));
+  setTimeout(()=>document.querySelectorAll('.new').forEach(e=>e.classList.remove('new')),200);
+}
+
+function move(dir){
+  // dir: 0=left, 1=up, 2=right, 3=down
+  let moved=false;
+  const old=JSON.stringify(board);
+  // rotate board so we always slide left
+  for(let r=0;r<dir;r++)board=board[0].map((_,i)=>board.map(row=>row[i]).reverse());
+  for(let y=0;y<4;y++){
+    let row=board[y].filter(v=>v);
+    for(let x=0;x<row.length-1;x++){
+      if(row[x]===row[x+1]){row[x]++;score+=Math.pow(2,row[x]);row.splice(x+1,1);row.push(0);moved=true}
+    }
+    while(row.length<4)row.push(0);board[y]=row;
+  }
+  // rotate back
+  for(let r=0;r<(4-dir)%4;r++)board=board[0].map((_,i)=>board.map(row=>row[i]).reverse());
+  if(JSON.stringify(board)!==old){add();draw();scEl.textContent=score}
+  if(checkEnd())end();
+}
+
+function checkEnd(){
+  for(let y=0;y<4;y++)for(let x=0;x<4;x++){
+    if(!board[y][x])return false;
+    if(x<3&&board[y][x]===board[y][x+1])return false;
+    if(y<3&&board[y][x]===board[y+1][x])return false;
+  }
+  return true;
+}
+
+function end(){
+  dead=true;if(score>best){best=score;localStorage.setItem('lolych2048_best',best);bestEl.textContent=best}
+  fsEl.textContent=score;fbEl.textContent=best;overEl.style.display='flex';
+}
+
+function restart(){init()}
+function share(){
+  const t=`🎮 2048 Лолыч! Мой счёт: ${score} (рекорд: ${best}). Играй: @Lolych_bot`;
+  window.open(`https://t.me/share/url?url=https://t.me/Lolych_bot&text=${encodeURIComponent(t)}`);
+}
+
+// Свайпы
+let sx=0,sy=0;
+document.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY});
+document.addEventListener('touchend',e=>{
+  if(dead)return;
+  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)<30&&Math.abs(dy)<30)return;
+  if(Math.abs(dx)>Math.abs(dy))move(dx>0?2:0);else move(dy>0?3:1);
+});
+document.addEventListener('keydown',e=>{
+  if(dead)return;
+  if(e.key==='ArrowLeft')move(0);if(e.key==='ArrowRight')move(2);
+  if(e.key==='ArrowUp')move(1);if(e.key==='ArrowDown')move(3);
+});
+
+init();
 </script>
 </body>
 </html>
