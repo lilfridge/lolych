@@ -24,6 +24,7 @@ import io
 import textwrap
 import logging
 from gtts import gTTS
+import glob
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -33,7 +34,8 @@ GIPHY_KEY = os.environ.get("GIPHY_KEY")
 IMGFLIP_USER = os.environ.get("IMGFLIP_USER")
 IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 
-DONATE_URL = "https://dalink.to/lilifridge"
+DONATE_URL = "https://dalink.to/trolololych"
+ADMIN_ID = 757006911
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -60,7 +62,7 @@ EMOJI = ["💀","🗿","😭","🤡","👀","🔥","😐","💅","🤨","😤","
          "🤯","💩","🙈","🤪","🤮","😬","🥴","👻","🫠","🫃","🧌","🫵","☠️","👺","💢","🔞","🤬"]
 
 EMPTY_PHRASES = ["жто не не", "67", "WTF", "🥶", "🗿", "💀", "🤡", "а где слова", "пустота...", "🫠", "ой всё"]
-EMPTY_MEME_TEXTS = ["nah", "nope", "lol", "omg", "wtf", "67", "bruh", "WW", "yo"]
+EMPTY_MEME_TEXTS = ["жто не не", "67", "лол", "омг", "втф", "67", "брух", "вв", "йо"]
 
 STICKERS = [
     "https://i.postimg.cc/pXzFLvS7/Pngtree-black-gradient-3d-number-67-5994973.png",
@@ -124,6 +126,43 @@ PHOTO_TEMPLATES = {
     },
     "IMG_4864.jpeg": {
         "photos": [{"x": 608, "y": 650, "w": 577, "h": 384}],
+        "texts": [],
+    },
+    "IMG_4867.jpeg": {
+        "photos": [
+            {"x": 572, "y": 257, "w": 200, "h": 200},
+            {"x": 138, "y": 510, "w": 200, "h": 200},
+            {"x": 907, "y": 552, "w": 200, "h": 200},
+        ],
+        "texts": [],
+    },
+    "IMG_4868.jpeg": {
+        "photos": [
+            {"x": 570, "y": 0, "w": 636, "h": 546},
+            {"x": 570, "y": 551, "w": 636, "h": 549},
+        ],
+        "texts": [],
+    },
+    "IMG_4869.jpeg": {
+        "photos": [
+            {"x": 203, "y": 70, "w": 800, "h": 465},
+            {"x": 203, "y": 670, "w": 800, "h": 400},
+        ],
+        "texts": [],
+    },
+    "IMG_4870.jpeg": {
+        "photos": [{"x": 0, "y": 0, "w": 1206, "h": 612}],
+        "texts": [],
+    },
+    "IMG_4871.jpeg": {
+        "photos": [{"x": 0, "y": 832, "w": 1206, "h": 413}],
+        "texts": [],
+    },
+    "IMG_4873.jpeg": {
+        "photos": [
+            {"x": 0, "y": 0, "w": 595, "h": 500},
+            {"x": 595, "y": 0, "w": 595, "h": 500},
+        ],
         "texts": [],
     },
     "IMG_4837.jpeg": {
@@ -705,11 +744,53 @@ def cmd_params(message):
     txt, markup = params_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
+@bot.message_handler(commands=["admin"])
+def cmd_admin(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    # Считаем чаты
+    chat_files = glob.glob("chat_*_messages.json")
+    total_chats = len(chat_files)
+    total_msgs = 0
+    total_photos = 0
+    total_users = set()
+    for f in chat_files:
+        try:
+            with open(f) as fh:
+                data = json.load(fh)
+                total_msgs += len(data)
+        except: pass
+    for f in glob.glob("chat_*_photos.json"):
+        try:
+            with open(f) as fh:
+                data = json.load(fh)
+                total_photos += len(data)
+        except: pass
+    for f in glob.glob("chat_*_users.json"):
+        try:
+            with open(f) as fh:
+                data = json.load(fh)
+                for uid in data:
+                    total_users.add(uid)
+        except: pass
+    
+    txt = f"""📊 <b>Админ-статистика:</b>
+• Бесед: {total_chats}
+• Сообщений: {total_msgs}
+• Фото: {total_photos}
+• Пользователей: {len(total_users)}
+• Стикеров из чатов: {len(_chat_stickers)}
+• Шаблонов фотомемов: {len(PHOTO_TEMPLATES)}
+• Шаблонов мемов: {len(IMGFLIP_TEMPLATES)}"""
+    
+    bot.reply_to(message, txt, parse_mode="HTML")
+
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
     bot.answer_callback_query(call.id)
     cid = call.message.chat.id
+    mid = call.message.message_id
     
     nav = {
         "menu_back": main_menu(cid),
@@ -727,33 +808,33 @@ def handle_buttons(call):
             txt, markup = fun_menu(2)
         else:
             txt, markup = nav[call.data]
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text(txt, cid, mid, reply_markup=markup, parse_mode="HTML")
         return
     
     if call.data == "gif":
         _gif_mode[cid] = True
-        bot.edit_message_text("🎬 <b>Напиши слово для поиска гифки</b>", cid, call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text("🎬 <b>Напиши слово для поиска гифки</b>", cid, mid, parse_mode="HTML")
     elif call.data == "menu_clear":
         txt, markup = clear_menu()
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text(txt, cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_all":
         _clear_confirm[cid] = True; _clear_category[cid] = "all"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
-        bot.edit_message_text("⚠️ <b>Удалить ВСЁ?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text("⚠️ <b>Удалить ВСЁ?</b>", cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_msgs":
         _clear_confirm[cid] = True; _clear_category[cid] = "messages"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
-        bot.edit_message_text("⚠️ <b>Удалить сообщения?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text("⚠️ <b>Удалить сообщения?</b>", cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_photos":
         _clear_confirm[cid] = True; _clear_category[cid] = "photos"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Да", callback_data="clear_yes"), InlineKeyboardButton("❌ Нет", callback_data="menu_params"))
-        bot.edit_message_text("⚠️ <b>Удалить фото?</b>", cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text("⚠️ <b>Удалить фото?</b>", cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data == "clear_stickers":
         _chat_stickers.clear()
-        bot.edit_message_text("🎨 <b>Стикеры из чата удалены!</b>", cid, call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text("🎨 <b>Стикеры из чата удалены!</b>", cid, mid, parse_mode="HTML")
     elif call.data == "clear_yes":
         if cid in _clear_confirm and _clear_confirm[cid]:
             cat = _clear_category.get(cid, "all")
@@ -775,32 +856,39 @@ def handle_buttons(call):
                 _chat_stickers.clear()
                 _my_photos.clear()
             _clear_confirm[cid] = False
-            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, call.message.message_id, parse_mode="HTML")
+            bot.edit_message_text("🧹 <b>Очищено!</b>", cid, mid, parse_mode="HTML")
     elif call.data == "toggle_mat":
         s = get_settings(cid); s["no_mat"] = not s.get("no_mat", False); save_settings(cid)
         txt, markup = activity_menu(cid)
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text(txt, cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data == "toggle_mute":
         s = get_settings(cid); s["muted"] = not s.get("muted", False); save_settings(cid)
         txt, markup = params_menu(cid)
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text(txt, cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data.startswith("setlevel_"):
         lv = int(call.data.split("_")[1])
         s = get_settings(cid); s["level"] = lv; save_settings(cid)
         txt, markup = activity_menu(cid)
-        bot.edit_message_text(txt, cid, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        bot.edit_message_text(txt, cid, mid, reply_markup=markup, parse_mode="HTML")
     elif call.data == "meme":
+        bot.delete_message(cid, mid)
         if not send_template_meme(bot, cid): bot.send_message(cid, "не смог")
     elif call.data == "dem":
+        bot.delete_message(cid, mid)
         if not send_random_dem(bot, cid): bot.send_message(cid, "нет фото")
-    elif call.data == "mix": bot.send_message(cid, mix_messages(cid))
+    elif call.data == "mix":
+        bot.delete_message(cid, mid)
+        bot.send_message(cid, mix_messages(cid))
     elif call.data == "voice":
+        bot.delete_message(cid, mid)
         v = generate_voice(absurd_word_salad(cid))
         if v: bot.send_voice(cid, v)
         else: bot.send_message(cid, "не смог")
     elif call.data == "stick":
+        bot.delete_message(cid, mid)
         if not send_sticker_photo(bot, cid): bot.send_message(cid, "нет фото")
     elif call.data == "photomeme":
+        bot.delete_message(cid, mid)
         out = make_photo_meme(cid)
         if out: bot.send_photo(cid, out)
         else: bot.send_message(cid, "нет фото или шаблонов")
