@@ -12,7 +12,7 @@ try:
 except: pass
 
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import markovify
 import random
 import threading
@@ -37,10 +37,19 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 DONATE_URL = "https://dalink.to/trolololych"
 ADMIN_ID = 757006911
 
+# Конфигурация игр с WebApp URL
 GAME_2048 = {
     "name": "🔢 Лолыч 2048",
     "url": "https://lilfridge.github.io/lolych/games/2048.html",
+    "webapp_url": "https://t.me/Lolych_bot/lolych2048",
     "desc": "Собери 2048"
+}
+
+GAME_BLOCKBLAST = {
+    "name": "🧊 Лолыч Бласт",
+    "url": "https://lilfridge.github.io/lolych/games/blockblast.html",
+    "webapp_url": "https://t.me/Lolych_bot/lolychblast",
+    "desc": "Разбивай блоки"
 }
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
@@ -637,15 +646,25 @@ def main_menu(cid):
 def games_menu():
     txt = f"""🕹️ <b>Мини-игры</b>
 
-🎮 Играй прямо в Telegram!
+🎮 Играй прямо в Telegram! Игры открываются как мини-приложения.
 
 🔢 <b>{GAME_2048['name']}</b>
 📝 {GAME_2048['desc']}
 
-👆 Нажми на кнопку ниже, чтобы запустить игру во встроенном браузере Telegram."""
+🧊 <b>{GAME_BLOCKBLAST['name']}</b>
+📝 {GAME_BLOCKBLAST['desc']}
+
+👆 Нажми на кнопку ниже, чтобы запустить игру прямо в Telegram."""
     
     markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton(f"🎮 Играть в {GAME_2048['name']}", url=GAME_2048["url"]))
+    markup.add(InlineKeyboardButton(
+        f"🎮 {GAME_2048['name']}",
+        web_app=WebAppInfo(url=GAME_2048["webapp_url"])
+    ))
+    markup.add(InlineKeyboardButton(
+        f"🎮 {GAME_BLOCKBLAST['name']}",
+        web_app=WebAppInfo(url=GAME_BLOCKBLAST["webapp_url"])
+    ))
     markup.add(InlineKeyboardButton("⬅ Назад в меню", callback_data="menu_back"))
     return txt, markup
 
@@ -778,7 +797,6 @@ def cmd_games(message):
 def cmd_admin(message):
     if message.from_user.id != ADMIN_ID:
         return
-    # Считаем чаты
     chat_files = glob.glob("chat_*_messages.json")
     total_chats = len(chat_files)
     total_msgs = 0
@@ -814,6 +832,34 @@ def cmd_admin(message):
 • Шаблонов мемов: {len(IMGFLIP_TEMPLATES)}"""
     
     bot.reply_to(message, txt, parse_mode="HTML")
+
+# ─── Обработчик WebApp данных (рекорды из игр) ────────────────────────────────
+@bot.message_handler(content_types=["web_app_data"])
+def handle_webapp_data(message):
+    try:
+        data = json.loads(message.web_app_data.data)
+        game = data.get("game", "")
+        score = data.get("score", 0)
+        best = data.get("best", 0)
+        user = message.from_user.first_name or "Аноним"
+        
+        game_names = {
+            "blockblast": "🧊 Лолыч Бласт",
+            "2048": "🔢 Лолыч 2048",
+            "stack": "🃏 Лолыч Тауэр"
+        }
+        
+        game_name = game_names.get(game, "игре")
+        
+        if score >= best and score > 0:
+            text = f"🏆 {user} набрал {score} очков в {game_name}!\nЭто новый рекорд!"
+        else:
+            text = f"🎮 {user} набрал {score} очков в {game_name}!\nРекорд: {best}"
+        
+        bot.send_message(message.chat.id, text)
+    except Exception as e:
+        log.error(f"WebApp data error: {e}")
+        pass
 
 # ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
