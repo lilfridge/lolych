@@ -624,6 +624,8 @@ def main_menu(cid):
         InlineKeyboardButton("🎮 Игры", callback_data="menu_games")
     )
     markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
+    markup.add(InlineKeyboardButton("🎮 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048["webapp_url"])))
+    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST["webapp_url"])))
     markup.add(InlineKeyboardButton("☕ Донат", url=DONATE_URL))
     return txt, markup
 
