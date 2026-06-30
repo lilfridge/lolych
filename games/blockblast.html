@@ -202,7 +202,6 @@ const SHAPES = [
 
 // Стиль Лолыча: безумные эмодзи + шанс "67"
 const CRAZY_EMOJIS = ['💀','🗿','🤡','🫃','🧌','👺','💩','🫠','👽','🎃','🤖','😈','👻','🦧','🤪','🤮','☠️','💢','🤬','👾'];
-const RARE_67 = '6️⃣7️⃣';
 const SIZE = 8;
 const COMBO_THRESHOLDS = [0,1,2,3,5,8,12]; // combo multiplier at index = multiplier
 
@@ -235,8 +234,7 @@ let prevHighlight = null;
 function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 function randomEmoji(){
-  // 8% шанс на "67"
-  return Math.random() < 0.08 ? RARE_67 : rand(CRAZY_EMOJIS);
+  return rand(CRAZY_EMOJIS);
 }
 
 function newPiece(){ return { cells: rand(SHAPES).map(c=>[...c]), emoji: randomEmoji() }; }
