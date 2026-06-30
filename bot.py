@@ -37,7 +37,6 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 DONATE_URL = "https://dalink.to/trolololych"
 ADMIN_ID = 757006911
 
-# Конфигурация игр с WebApp URL
 GAME_2048 = {
     "name": "🔢 Лолыч 2048",
     "url": "https://lilfridge.github.io/lolych/games/2048.html",
@@ -132,7 +131,6 @@ KOGDA_ANSWERS = [
     "после того как {user} поумнеет",
 ]
 
-# ─── Фотомем: шаблоны ───────────────────────────────────────────────────────
 TEMPLATES_DIR = "templates"
 PHOTO_TEMPLATES = {
     "IMG_4862.jpeg": {
@@ -254,7 +252,6 @@ PHOTO_TEMPLATES = {
     },
 }
 
-# ─── Файлы ────────────────────────────────────────────────────────────────────
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
 
 _cache = {}
@@ -331,7 +328,6 @@ def is_no_mat(chat_id): return get_settings(chat_id).get("no_mat",False)
 def get_counter(chat_id): return _load(chat_id, "counter")
 def save_counter(chat_id): _save(chat_id, "counter")
 
-# ─── Слова ─────────────────────────────────────────────────────────────────────
 def _chat_words(chat_id, min_len=2):
     msgs = _load(chat_id, "messages")
     if not msgs: return []
@@ -369,7 +365,6 @@ def absurd_word_salad(chat_id, source_text="", length=None):
     if random.random() < 0.1: text = text.upper()
     return text.strip()
 
-# ─── GIPHY ─────────────────────────────────────────────────────────────────────
 def get_gif_by_query(query):
     try:
         url = f"https://api.giphy.com/v1/gifs/search?api_key={GIPHY_KEY}&q={query}&limit=10&rating=r"
@@ -388,7 +383,6 @@ def get_random_gif():
     except: pass
     return None
 
-# ─── Голосовые ────────────────────────────────────────────────────────────────
 def generate_voice(text):
     try:
         tts = gTTS(text=text, lang="ru", slow=False)
@@ -407,7 +401,6 @@ def send_random_voice(bot_instance, chat_id, reply_to=None):
         except: pass
     return False
 
-# ─── Микс ─────────────────────────────────────────────────────────────────────
 def mix_messages(chat_id):
     _save(chat_id, "messages")
     path = _chat_file(chat_id, "messages.json")
@@ -441,7 +434,6 @@ def mix_messages(chat_id):
     
     return " ".join(part1 + part2)
 
-# ─── Опросы ───────────────────────────────────────────────────────────────────
 def send_random_poll(bot_instance, chat_id):
     words = _chat_words(chat_id)
     if len(words) < 5: return
@@ -453,7 +445,6 @@ def send_random_poll(bot_instance, chat_id):
     try: bot_instance.send_poll(chat_id, question=question, options=options, is_anonymous=False)
     except: pass
 
-# ─── Фотомем ──────────────────────────────────────────────────────────────────
 def make_photo_meme(chat_id):
     photos = get_photos(chat_id)
     if not photos: return None
@@ -484,7 +475,6 @@ def make_photo_meme(chat_id):
         log.error(f"Фотомем ошибка: {e}")
         return None
 
-# ─── Шрифты ───────────────────────────────────────────────────────────────────
 def _find_font(size):
     for p in ["impact.ttf", os.path.join(os.path.dirname(__file__),"impact.ttf"),
               "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
@@ -498,7 +488,6 @@ def _find_serif_font(size):
         except: continue
     return _find_font(size)
 
-# ─── Демотиватор ─────────────────────────────────────────────────────────────
 def make_demotivator(img_bytes, text):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     w, h = img.size
@@ -533,7 +522,6 @@ def send_random_dem(bot_instance, chat_id, reply_to=None, custom_text=None):
         return True
     except: return False
 
-# ─── Мемы ─────────────────────────────────────────────────────────────────────
 def make_imgflip_meme(template_id, texts, num_boxes=2):
     params = {"template_id":template_id,"username":IMGFLIP_USER,"password":IMGFLIP_PASS}
     for i, t in enumerate(texts[:num_boxes]):
@@ -571,7 +559,6 @@ def send_template_meme(bot_instance, chat_id, reply_to=None, texts=None):
         except: pass
     return False
 
-# ─── Стикеры ──────────────────────────────────────────────────────────────────
 def make_sticker(img_bytes):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
     w, h = img.size
@@ -609,16 +596,13 @@ def send_sticker_photo(bot_instance, chat_id, reply_to=None):
         return True
     except: return False
 
-# ─── Хелперы ──────────────────────────────────────────────────────────────────
 def has_mat(text): return any(m in text.lower() for m in MAT)
 def get_random_user(chat_id):
     u = get_users(chat_id)
     return random.choice(list(u.values()))["name"] if u else None
 
-# ─── Бот ──────────────────────────────────────────────────────────────────────
 bot = telebot.TeleBot(TOKEN)
 
-# ─── Меню ────────────────────────────────────────────────────────────────────
 def main_menu(cid):
     msgs = _load(cid, "messages")
     photos = _load(cid, "photos")
@@ -737,14 +721,12 @@ def clear_menu():
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
 
-# ─── Приветствие ─────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["new_chat_members"])
 def handle_new_member(message):
     for member in message.new_chat_members:
         if member.username == bot.get_me().username:
             bot.send_message(message.chat.id, f"👋 <b>Привет, хомяк, с тобой земляк!</b>\n☕ <a href='{DONATE_URL}'>Поддержать бота</a>", parse_mode="HTML")
 
-# ─── Стикеры из чата ─────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["sticker"])
 def handle_sticker(message):
     cid = message.chat.id
@@ -761,7 +743,6 @@ def handle_sticker(message):
         fid = random.choice(_chat_stickers)
         bot.send_sticker(cid, fid)
 
-# ─── Команды ──────────────────────────────────────────────────────────────────
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     cid = message.chat.id
@@ -833,7 +814,6 @@ def cmd_admin(message):
     
     bot.reply_to(message, txt, parse_mode="HTML")
 
-# ─── Обработчик WebApp данных (рекорды из игр) ────────────────────────────────
 @bot.message_handler(content_types=["web_app_data"])
 def handle_webapp_data(message):
     try:
@@ -861,7 +841,6 @@ def handle_webapp_data(message):
         log.error(f"WebApp data error: {e}")
         pass
 
-# ─── Кнопки ──────────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
     bot.answer_callback_query(call.id)
@@ -970,7 +949,6 @@ def handle_buttons(call):
         if out: bot.send_photo(cid, out)
         else: bot.send_message(cid, "нет фото или шаблонов")
 
-# ─── Сообщения ────────────────────────────────────────────────────────────────
 @bot.message_handler(func=lambda m: True, content_types=["text"])
 def handle_message(message):
     if not message.text or message.text.startswith("/"): return
@@ -1050,7 +1028,6 @@ def handle_message(message):
         if random.random()<0.15: bot.reply_to(message, " ".join(random.choices(EMOJI, k=random.randint(1,3))))
         else: bot.reply_to(message, absurd_word_salad(cid, text))
 
-# ─── Фото ─────────────────────────────────────────────────────────────────────
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
     if message.from_user.is_bot: return
