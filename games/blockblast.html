@@ -613,6 +613,14 @@ function checkGameOver(){
 function endGame(){
   dead = true;
   sEnd();
+    // Отправка рекорда в Telegram
+  if(window.Telegram?.WebApp){
+    Telegram.WebApp.sendData(JSON.stringify({
+      game: "blockblast",
+      score: score,
+      best: Math.max(best, score)
+    }));
+  }
   document.getElementById('combo').textContent = '';
   document.getElementById('board-wrap').classList.remove('combo-glow');
   if(score > best){ best=score; localStorage.setItem('lb2_best',best); }

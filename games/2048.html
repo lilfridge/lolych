@@ -522,6 +522,14 @@ function undo(){
 /* ── end ── */
 function gameOver(title){
   dead=true;clearInterval(timerInt);sEnd();
+    // Отправка рекорда в Telegram
+  if(window.Telegram?.WebApp){
+    Telegram.WebApp.sendData(JSON.stringify({
+      game: "2048",
+      score: score,
+      best: Math.max(best, score)
+    }));
+  }
   if(score>best){best=score;localStorage.setItem('l48b',best);$('bst').textContent=best}
   $('otitle').textContent=title;$('os').textContent=score;$('ob').textContent=best;
   $('om').textContent=moves;$('ob2').textContent=bestBlock?Math.pow(2,bestBlock):'—';
