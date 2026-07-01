@@ -37,8 +37,8 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 DONATE_URL = "https://dalink.to/trolololych"
 ADMIN_ID = 757006911
 
-GAME_2048_URL = "https://t.me/Lolych_bot/lolych2048"
-GAME_BLOCKBLAST_URL = "https://t.me/Lolych_bot/lolychblast"
+GAME_2048_WEBAPP = "https://t.me/Lolych_bot/lolych2048"
+GAME_BLOCKBLAST_WEBAPP = "https://t.me/Lolych_bot/lolychblast"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -489,7 +489,8 @@ def get_random_user(chat_id):
 
 bot = telebot.TeleBot(TOKEN)
 
-# ─────────────── МЕНЮ (без HTML) ───────────────
+# ========== МЕНЮ ==========
+
 def main_menu(cid):
     msgs = _load(cid, "messages")
     photos = _load(cid, "photos")
@@ -500,50 +501,48 @@ def main_menu(cid):
         f"🃏 Лолыч\n\n"
         f"📋 Главное меню\n"
         f"ID: {cid}\n"
-        f"Активность: {lv_name}\n\n"
-        f"Сообщений: {len(msgs)}\n"
-        f"Фото: {len(photos)} · Стикеров: {len(_chat_stickers)}"
+        f"⭐ Активность: {lv_name}\n\n"
+        f"📚 Сообщений: {len(msgs)}\n"
+        f"🖼 Фото: {len(photos)} · 🎨 Стикеров: {len(_chat_stickers)}"
     )
 
     markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
-        InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params")
-    )
-    markup.add(InlineKeyboardButton("🔢 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048_URL)))
-    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST_URL)))
+    markup.add(InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"))
+    markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
+    markup.add(InlineKeyboardButton("🎮 Игры", callback_data="menu_games"))
     markup.add(InlineKeyboardButton("☕ Донат", url=DONATE_URL))
     return txt, markup
 
-def fun_menu(page=1):
-    if page == 1:
-        txt = "🎪 Тут мои таланты\n\nНе обращайте внимания, я просто рофлю 🥶"
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton("🖼 Мем", callback_data="meme"),
-            InlineKeyboardButton("😔 Демотиватор", callback_data="dem")
-        )
-        markup.add(
-            InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"),
-            InlineKeyboardButton("🎭 Стикер", callback_data="stick")
-        )
-        markup.add(
-            InlineKeyboardButton("⬅ Назад", callback_data="menu_back"),
-            InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2")
-        )
-    else:
-        txt = "🎪 Тут мои таланты\n\nНе обращайте внимания, я просто рофлю 🥶"
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton("🎬 Гифка", callback_data="gif"),
-            InlineKeyboardButton("💬 Микс", callback_data="mix")
-        )
-        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
-        markup.add(
-            InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"),
-            InlineKeyboardButton("↩ В меню", callback_data="menu_back")
-        )
+
+def games_menu():
+    txt = "🕹️ Мини-игры\n\n🎮 Игры открываются прямо в Telegram!"
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton("🔢 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048_WEBAPP)))
+    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST_WEBAPP)))
+    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
+
+
+def fun_menu(page=1):
+    txt = "🎪 Тут мои таланты\n\nНе обращайте внимания, я просто рофлю 🥶"
+    if page == 1:
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"),
+                   InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
+        markup.add(InlineKeyboardButton("📸 Фотомем", callback_data="photomeme"),
+                   InlineKeyboardButton("🎭 Стикер", callback_data="stick"))
+        markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"),
+                   InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"))
+    else:
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"),
+                   InlineKeyboardButton("💬 Микс", callback_data="mix"))
+        markup.add(InlineKeyboardButton("🎙 Голос", callback_data="voice"))
+        markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_fun_page1"),
+                   InlineKeyboardButton("↩ В меню", callback_data="menu_back"))
+    return txt, markup
+
 
 def params_menu(cid):
     no_mat = is_no_mat(cid)
@@ -551,15 +550,13 @@ def params_menu(cid):
     txt = "⚙️ Параметры\n\nЗдесь командуешь ты 👑"
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton(
-            "✅ Бот включен" if not muted else "🔇 Бот выключен",
-            callback_data="toggle_mute"
-        ),
+        InlineKeyboardButton("✅ Бот включен" if not muted else "🔇 Бот выключен", callback_data="toggle_mute"),
         InlineKeyboardButton("⭐ Активность", callback_data="menu_activity")
     )
     markup.add(InlineKeyboardButton("🗑 Очистить", callback_data="menu_clear"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
+
 
 def activity_menu(cid):
     lv = get_level(cid)
@@ -573,36 +570,29 @@ def activity_menu(cid):
         mark = "✅" if i == lv else ""
         btns.append(InlineKeyboardButton(f"{mark} {emoji_map[i]} {i}", callback_data=f"setlevel_{i}"))
     markup.add(*btns)
-    markup.add(InlineKeyboardButton(
-        "✅ Мат разрешён" if not no_mat else "🚫 Без мата",
-        callback_data="toggle_mat"
-    ))
+    markup.add(InlineKeyboardButton("✅ Мат разрешён" if not no_mat else "🚫 Без мата", callback_data="toggle_mat"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
+
 
 def clear_menu():
     txt = "🗑 Что очистить?"
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("💬 Сообщения", callback_data="clear_msgs"),
-        InlineKeyboardButton("🖼 Фото", callback_data="clear_photos")
-    )
-    markup.add(
-        InlineKeyboardButton("🎨 Стикеры", callback_data="clear_stickers"),
-        InlineKeyboardButton("🗑 Всё", callback_data="clear_all")
-    )
+    markup.add(InlineKeyboardButton("💬 Сообщения", callback_data="clear_msgs"),
+               InlineKeyboardButton("🖼 Фото", callback_data="clear_photos"))
+    markup.add(InlineKeyboardButton("🎨 Стикеры", callback_data="clear_stickers"),
+               InlineKeyboardButton("🗑 Всё", callback_data="clear_all"))
     markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_params"))
     return txt, markup
 
-# ─────────────── ОБРАБОТЧИКИ ───────────────
+
+# ========== ОБРАБОТЧИКИ ==========
+
 @bot.message_handler(content_types=["new_chat_members"])
 def handle_new_member(message):
     for member in message.new_chat_members:
         if member.username == bot.get_me().username:
-            bot.send_message(
-                message.chat.id,
-                f"👋 Привет, хомяк, с тобой земляк!\n☕ Поддержать бота: {DONATE_URL}"
-            )
+            bot.send_message(message.chat.id, "👋 Привет, хомяк, с тобой земляк!")
 
 @bot.message_handler(content_types=["sticker"])
 def handle_sticker(message):
@@ -639,6 +629,11 @@ def cmd_params(message):
     txt, markup = params_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup)
 
+@bot.message_handler(commands=["games"])
+def cmd_games(message):
+    txt, markup = games_menu()
+    bot.send_message(message.chat.id, txt, reply_markup=markup)
+
 @bot.message_handler(commands=["admin"])
 def cmd_admin(message):
     if message.from_user.id != ADMIN_ID:
@@ -651,32 +646,28 @@ def cmd_admin(message):
     for f in chat_files:
         try:
             with open(f) as fh:
-                data = json.load(fh)
-                total_msgs += len(data)
+                total_msgs += len(json.load(fh))
         except: pass
     for f in glob.glob("chat_*_photos.json"):
         try:
             with open(f) as fh:
-                data = json.load(fh)
-                total_photos += len(data)
+                total_photos += len(json.load(fh))
         except: pass
     for f in glob.glob("chat_*_users.json"):
         try:
             with open(f) as fh:
-                data = json.load(fh)
-                for uid in data:
+                for uid in json.load(fh):
                     total_users.add(uid)
         except: pass
-
     txt = (
         f"📊 Админ-статистика:\n"
         f"• Бесед: {total_chats}\n"
         f"• Сообщений: {total_msgs}\n"
         f"• Фото: {total_photos}\n"
         f"• Пользователей: {len(total_users)}\n"
-        f"• Стикеров из чатов: {len(_chat_stickers)}\n"
-        f"• Шаблонов фотомемов: {len(PHOTO_TEMPLATES)}\n"
-        f"• Шаблонов мемов: {len(IMGFLIP_TEMPLATES)}"
+        f"• Стикеров: {len(_chat_stickers)}\n"
+        f"• Фотомемов: {len(PHOTO_TEMPLATES)}\n"
+        f"• Мемов: {len(IMGFLIP_TEMPLATES)}"
     )
     bot.reply_to(message, txt)
 
@@ -693,6 +684,7 @@ def handle_buttons(call):
         "menu_fun_page1": fun_menu(1),
         "menu_params": params_menu(cid),
         "menu_activity": activity_menu(cid),
+        "menu_games": games_menu(),
     }
 
     if call.data in nav:
@@ -705,7 +697,6 @@ def handle_buttons(call):
         bot.edit_message_text(txt, cid, mid, reply_markup=markup)
         return
 
-    # остальные колбэки...
     if call.data == "gif":
         _gif_mode[cid] = True
         bot.edit_message_text("🎬 Напиши слово для поиска гифки", cid, mid)
@@ -737,7 +728,7 @@ def handle_buttons(call):
         if cid in _clear_confirm and _clear_confirm[cid]:
             cat = _clear_category.get(cid, "all")
             if cat in ("all", "messages"):
-                for k in ["messages", "users"]:
+                for k in ["messages","users"]:
                     p = _chat_file(cid, f"{k}.json")
                     if os.path.exists(p): os.remove(p)
                     if f"{cid}_{k}" in _cache: del _cache[f"{cid}_{k}"]
@@ -756,22 +747,16 @@ def handle_buttons(call):
             _clear_confirm[cid] = False
             bot.edit_message_text("🧹 Очищено!", cid, mid)
     elif call.data == "toggle_mat":
-        s = get_settings(cid)
-        s["no_mat"] = not s.get("no_mat", False)
-        save_settings(cid)
+        s = get_settings(cid); s["no_mat"] = not s.get("no_mat", False); save_settings(cid)
         txt, markup = activity_menu(cid)
         bot.edit_message_text(txt, cid, mid, reply_markup=markup)
     elif call.data == "toggle_mute":
-        s = get_settings(cid)
-        s["muted"] = not s.get("muted", False)
-        save_settings(cid)
+        s = get_settings(cid); s["muted"] = not s.get("muted", False); save_settings(cid)
         txt, markup = params_menu(cid)
         bot.edit_message_text(txt, cid, mid, reply_markup=markup)
     elif call.data.startswith("setlevel_"):
         lv = int(call.data.split("_")[1])
-        s = get_settings(cid)
-        s["level"] = lv
-        save_settings(cid)
+        s = get_settings(cid); s["level"] = lv; save_settings(cid)
         txt, markup = activity_menu(cid)
         bot.edit_message_text(txt, cid, mid, reply_markup=markup)
     elif call.data == "meme":
@@ -815,8 +800,7 @@ def handle_message(message):
         else: bot.send_message(cid, "не нашёл гифку")
         return
 
-    add_message(cid, text)
-    add_user_message(cid, uid, name, text)
+    add_message(cid, text); add_user_message(cid, uid, name, text)
 
     no_mat = is_no_mat(cid)
     lv = get_level(cid)
@@ -840,8 +824,7 @@ def handle_message(message):
     if any(w in text.lower() for w in ["лолыч","лолич"]) and random.random() < extras[2]:
         clean = text.lower()
         for w in ["лолыч","лолич"]: clean = clean.replace(w, "").strip()
-        bot.reply_to(message, absurd_word_salad(cid, clean))
-        return
+        bot.reply_to(message, absurd_word_salad(cid, clean)); return
 
     if has_mat(text) and not no_mat:
         if random.random() < extras[0]:
