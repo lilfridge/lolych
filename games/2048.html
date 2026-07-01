@@ -29,7 +29,6 @@ body.purple .val{color:#e0d8ff}
 #pf{height:100%;background:linear-gradient(90deg,#e94560,#ff9ff3);transition:width .4s;width:0%}
 #ach{color:#ffd93d;font-size:13px;font-weight:700;height:18px;text-align:center;margin-bottom:6px}
 
-/* Board */
 #wrap{position:relative;width:304px;height:304px;background:#13132a;border-radius:12px;padding:8px}
 body.light #wrap{background:#bbada0}
 body.purple #wrap{background:#0e0c2e}
@@ -47,8 +46,7 @@ body.purple .bc{background:#1e1c3a}
   width:68px;height:68px;border-radius:8px;
   display:flex;align-items:center;justify-content:center;
   font-weight:900;font-size:26px;color:#fff;
-  transition: left 150ms ease, top 150ms ease;
-  z-index:10;
+  transition: left 120ms ease, top 120ms ease;
 }
 .t[data-v="2"]   {background:#2e4a3e}
 .t[data-v="4"]   {background:#3a6a56}
@@ -92,12 +90,6 @@ body.purple .t[data-v="2048"]{background:linear-gradient(135deg,#a855f7,#ff9ff3)
 @keyframes fly{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-40px)}}
 .sf{position:fixed;pointer-events:none;z-index:300;color:#ffd93d;font-size:18px;font-weight:900;animation:fly .7s ease-out forwards}
 
-/* Overlay eat animation */
-.t.eaten{
-  transition: left 150ms ease, top 150ms ease, opacity 150ms ease;
-  z-index:5;
-}
-
 #dpad{display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px;gap:4px;margin-top:10px}
 #dpad button{background:#1e1e3a;color:#fff;border:none;font-size:18px;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 body.light #dpad button{background:#cdc1b4;color:#5c4e3d}
@@ -105,14 +97,14 @@ body.purple #dpad button{background:#1e1c3a;color:#e0d8ff}
 #dpad button:active{background:#e94560;color:#fff}
 #bu{grid-column:2;grid-row:1}#bl{grid-column:1;grid-row:2}#bd{grid-column:2;grid-row:2}#br{grid-column:3;grid-row:2}
 
-#acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:center}
-#acts button{background:#1e1e3a;color:#aaa;border:none;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:11px;-webkit-tap-highlight-color:transparent}
+#acts{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+#acts button{background:#1e1e3a;color:#aaa;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;-webkit-tap-highlight-color:transparent}
 body.light #acts button{background:#cdc1b4;color:#5c4e3d}
 body.purple #acts button{background:#1e1c3a;color:#a090cc}
 #acts button.active,#acts button:active{background:#e94560;color:#fff}
 #bundo{color:#ffd93d!important}
 
-#skins{display:flex;gap:5px;margin-top:6px}
+#skins{display:flex;gap:5px;margin-top:8px}
 #skins button{border:none;padding:4px 9px;border-radius:6px;cursor:pointer;font-size:10px}
 #skD{background:#1a1a2e;color:#aaa}#skL{background:#cdc1b4;color:#5c4e3d}#skP{background:#2a2060;color:#c0b8ff}
 #hint{color:#555;font-size:10px;margin-top:5px}
@@ -167,22 +159,14 @@ body.purple #acts button{background:#1e1c3a;color:#a090cc}
 <script>
 const ACH={128:'🔥 Огонь!',256:'🤡 Мастер!',512:'🧠 Гений!',1024:'👽 Космос!',2048:'🃏 ЛОЛЫЧ!'};
 const WW=['ЙО!','ХА!','УХ!','ОГО!','МОЩНО!','WOW!'];
-const STEP=74; // 68px + 6px gap
+const STEP=74;
 
-/* ── state ── */
 let grid,score,moves,dead,mode='normal';
 let bestBlock,hist=[];
 let timerSec,timerInt=null;
 let best=+localStorage.getItem('l48b')||0;
-let lock=false; // prevent move during animation
+let lock=false;
 
-/*
-  grid[y][x] = null | { val, id }
-  val = log2 of displayed number (1=2, 2=4, ...)
-  id  = unique integer, stable per tile lifetime
-
-  tiles = Map<id, { el, x, y }>
-*/
 let tiles=new Map();
 let uid=0;
 
@@ -190,7 +174,6 @@ const $=id=>document.getElementById(id);
 const tlEl=$('tl');
 $('bst').textContent=best;
 
-/* ── audio ── */
 let AC;
 function boop(f,d=.05,v=.04,tp='sine'){
   try{
@@ -207,14 +190,12 @@ const sMerge=v=>{boop(380+v*12,.06,.05,'triangle');setTimeout(()=>boop(540+v*12,
 const sEnd  =()=>boop(90,.22,.08,'sawtooth');
 const sUndo =()=>boop(200,.05,.04);
 
-/* ── score float ── */
 function floatScore(val,px,py){
   const d=document.createElement('div');d.className='sf';
   d.textContent='+'+val;d.style.left=px+'px';d.style.top=py+'px';
   document.body.appendChild(d);setTimeout(()=>d.remove(),720);
 }
 
-/* ── fireworks ── */
 let fp=[];
 function launchFW(){
   const c=$('fw');c.width=innerWidth;c.height=innerHeight;
@@ -235,13 +216,9 @@ function animFW(){
   ctx.globalAlpha=1;if(fp.length)requestAnimationFrame(animFW);
 }
 
-/* ── ach toast ── */
 let achT;
 function showAch(t){$('ach').textContent=t;clearTimeout(achT);achT=setTimeout(()=>$('ach').innerHTML='&nbsp;',2200)}
 
-/* ══════════════════════════════════════════
-   TILE DOM
-══════════════════════════════════════════ */
 function px(coord){ return coord*STEP+'px' }
 
 function createTileEl(val,x,y,doSpawn){
@@ -251,15 +228,11 @@ function createTileEl(val,x,y,doSpawn){
   el.setAttribute('data-v',v);
   el.textContent=v;
   if(v>=128) el.classList.add('glow');
-  // Set initial position without transition
   el.style.transition='none';
   el.style.left=px(x);
   el.style.top=px(y);
   tlEl.appendChild(el);
-  // Enable transition on next frame
-  requestAnimationFrame(()=>{
-    el.style.transition='';
-  });
+  requestAnimationFrame(()=>{ el.style.transition=''; });
   return el;
 }
 
@@ -273,7 +246,6 @@ function updateTileVal(el,val){
   el.setAttribute('data-v',v);
   el.textContent=v;
   if(v>=128) el.classList.add('glow');
-  // merge bump
   el.classList.remove('bump');
   void el.offsetWidth;
   el.classList.add('bump');
@@ -281,13 +253,9 @@ function updateTileVal(el,val){
 
 function removeTileEl(el){
   el.style.opacity='0';
-  el.style.transition='opacity 100ms ease';
-  setTimeout(()=>el.remove(),110);
+  setTimeout(()=>el.remove(),130);
 }
 
-/* ══════════════════════════════════════════
-   GRID LOGIC
-══════════════════════════════════════════ */
 function mkGrid(){return Array(4).fill(0).map(()=>Array(4).fill(null))}
 
 function spawnRandom(){
@@ -313,65 +281,59 @@ function init(){
   spawnRandom();spawnRandom();
 }
 
-/* ── Move ── */
 function rotCW(g){
   return g[0].map((_,i)=>g.map(r=>r[i]).reverse());
 }
 
 function doMove(dir){
-  if(dead || lock) return;
+  if(dead||lock)return;
 
-  // Rotate grid so we always slide LEFT
   let g=grid;
   for(let i=0;i<dir;i++) g=rotCW(g);
 
-  // Plan all moves
-  const movesPlan = []; // {id, fromCol, toCol, row, eatId, newVal}
-  let changed = false;
+  const movesPlan=[];
+  let changed=false;
 
-  for(let row=0; row<4; row++){
-    // Extract non-null cells
-    const cells = [];
-    for(let col=0; col<4; col++){
+  for(let row=0;row<4;row++){
+    const cells=[];
+    for(let col=0;col<4;col++){
       if(g[row][col]) cells.push({...g[row][col], origCol:col});
     }
 
-    let writeCol = 0;
-    let i = 0;
-    while(i < cells.length){
-      const cur = cells[i];
-      if(i+1 < cells.length && cells[i+1].val === cur.val){
-        // Merge
-        const eaten = cells[i+1];
+    let writeCol=0;
+    let i=0;
+    while(i<cells.length){
+      const cur=cells[i];
+      if(i+1<cells.length && cells[i+1].val===cur.val){
+        const eaten=cells[i+1];
         movesPlan.push({
-          id: cur.id,
-          fromCol: cur.origCol,
-          toCol: writeCol,
-          row: row,
-          eatId: eaten.id,
-          newVal: cur.val + 1
+          id:cur.id,
+          fromCol:cur.origCol,
+          toCol:writeCol,
+          row:row,
+          eatId:eaten.id,
+          newVal:cur.val+1
         });
-        // Move eaten tile to merge position
         movesPlan.push({
-          id: eaten.id,
-          fromCol: eaten.origCol,
-          toCol: writeCol,
-          row: row,
-          eatId: null,
-          isEaten: true,
-          mergeWithId: cur.id
+          id:eaten.id,
+          fromCol:eaten.origCol,
+          toCol:writeCol,
+          row:row,
+          eatId:null,
+          isEaten:true,
+          mergeWithId:cur.id
         });
-        i += 2;
-        changed = true;
-      } else {
-        if(cur.origCol !== writeCol) changed = true;
+        i+=2;
+        changed=true;
+      }else{
+        if(cur.origCol!==writeCol) changed=true;
         movesPlan.push({
-          id: cur.id,
-          fromCol: cur.origCol,
-          toCol: writeCol,
-          row: row,
-          eatId: null,
-          newVal: cur.val
+          id:cur.id,
+          fromCol:cur.origCol,
+          toCol:writeCol,
+          row:row,
+          eatId:null,
+          newVal:cur.val
         });
         i++;
       }
@@ -379,115 +341,94 @@ function doMove(dir){
     }
   }
 
-  // Convert rotated coords back to real grid coords
-  const toReal = (row, col, dir) => {
-    // Apply reverse rotation
-    let r = row, c = col;
-    // We rotated CW 'dir' times. To get real coords, rotate CW (4-dir) times
-    const remaining = (4 - dir) % 4;
-    for(let i=0; i<remaining; i++){
-      // CW: (row,col) -> (col, 3-row)
-      const nr = c;
-      const nc = 3 - r;
-      r = nr; c = nc;
+  const toReal=(row,col,dir)=>{
+    let r=row,c=col;
+    const rem=(4-dir)%4;
+    for(let i=0;i<rem;i++){
+      const nr=c;
+      const nc=3-r;
+      r=nr;c=nc;
     }
-    return {y: r, x: c};
+    return {y:r,x:c};
   };
 
-  if(!changed){
-    return; // nothing moved
-  }
+  if(!changed) return;
 
-  // Save history
   hist.push({
-    grid: grid.map(r => r.map(c => c ? {...c} : null)),
-    score, bestBlock, moves
+    grid:grid.map(r=>r.map(c=>c?{...c}:null)),
+    score,bestBlock,moves
   });
-  if(hist.length > 60) hist.shift();
+  if(hist.length>60) hist.shift();
 
-  lock = true;
+  lock=true;
 
-  // Build new real grid
-  const newRealGrid = mkGrid();
-  const eatenIds = new Set();
+  const newRealGrid=mkGrid();
+  const eatenIds=new Set();
 
-  movesPlan.forEach(m => {
-    if(m.isEaten) return; // eaten tiles handled separately
-    const pos = toReal(m.row, m.toCol, dir);
-    newRealGrid[pos.y][pos.x] = {val: m.newVal, id: m.id};
+  movesPlan.forEach(m=>{
+    if(m.isEaten) return;
+    const pos=toReal(m.row,m.toCol,dir);
+    newRealGrid[pos.y][pos.x]={val:m.newVal,id:m.id};
     if(m.eatId) eatenIds.add(m.eatId);
   });
 
-  // Phase 1: Animate ALL tiles to their new positions
-  const survivingMoves = movesPlan.filter(m => !m.isEaten);
-  const eatenMoves = movesPlan.filter(m => m.isEaten);
+  const survivingMoves=movesPlan.filter(m=>!m.isEaten);
+  const eatenMoves=movesPlan.filter(m=>m.isEaten);
 
-  // Move surviving tiles
-  survivingMoves.forEach(m => {
-    const t = tiles.get(m.id);
-    if(!t) return;
-    const pos = toReal(m.row, m.toCol, dir);
-    moveTileEl(t.el, pos.x, pos.y);
-    t.x = pos.x;
-    t.y = pos.y;
+  survivingMoves.forEach(m=>{
+    const t=tiles.get(m.id);
+    if(!t)return;
+    const pos=toReal(m.row,m.toCol,dir);
+    moveTileEl(t.el,pos.x,pos.y);
+    t.x=pos.x;t.y=pos.y;
   });
 
-  // Move eaten tiles to merge position, then fade
-  eatenMoves.forEach(m => {
-    const t = tiles.get(m.id);
-    if(!t) return;
-    const pos = toReal(m.row, m.toCol, dir);
-    t.el.classList.add('eaten');
-    moveTileEl(t.el, pos.x, pos.y);
+  eatenMoves.forEach(m=>{
+    const t=tiles.get(m.id);
+    if(!t)return;
+    const pos=toReal(m.row,m.toCol,dir);
+    t.el.style.zIndex='5';
+    moveTileEl(t.el,pos.x,pos.y);
   });
 
-  // Sound for movement
   sMove();
 
-  // Phase 2: After animation completes, update values and remove eaten tiles
-  setTimeout(() => {
-    // Update merged tiles values
-    survivingMoves.forEach(m => {
-      if(!m.eatId) return; // not a merge
-      const t = tiles.get(m.id);
-      if(!t) return;
-      updateTileVal(t.el, m.newVal);
-      const v = Math.pow(2, m.newVal);
-      // Score
-      score += v * (mode==='blitz' ? 2 : 1);
-      $('sc').textContent = score;
-      // Float score
-      const r = t.el.getBoundingClientRect();
-      floatScore(v, r.left + r.width*.5, r.top);
-      // Achievements
+  setTimeout(()=>{
+    survivingMoves.forEach(m=>{
+      if(!m.eatId) return;
+      const t=tiles.get(m.id);
+      if(!t)return;
+      updateTileVal(t.el,m.newVal);
+      const v=Math.pow(2,m.newVal);
+      score+=v*(mode==='blitz'?2:1);
+      $('sc').textContent=score;
+      const r=t.el.getBoundingClientRect();
+      floatScore(v,r.left+r.width*.5,r.top);
       if(ACH[v]) showAch(ACH[v]+' '+WW[Math.floor(Math.random()*WW.length)]);
-      if(m.newVal === 11) launchFW();
-      if(m.newVal > bestBlock){
-        bestBlock = m.newVal;
-        $('btl').textContent = Math.pow(2, bestBlock);
-        $('pf').style.width = Math.min(100, Math.round(bestBlock/11*100))+'%';
+      if(m.newVal===11) launchFW();
+      if(m.newVal>bestBlock){
+        bestBlock=m.newVal;
+        $('btl').textContent=Math.pow(2,bestBlock);
+        $('pf').style.width=Math.min(100,Math.round(bestBlock/11*100))+'%';
       }
       sMerge(m.newVal);
     });
 
-    // Remove eaten tiles
-    eatenMoves.forEach(m => {
-      const t = tiles.get(m.id);
+    eatenMoves.forEach(m=>{
+      const t=tiles.get(m.id);
       if(t){ removeTileEl(t.el); tiles.delete(m.id); }
     });
 
-    // Update grid
-    grid = newRealGrid;
+    grid=newRealGrid;
     moves++;
-    $('mv').textContent = moves;
+    $('mv').textContent=moves;
 
-    // Spawn new tile
-    setTimeout(() => {
+    setTimeout(()=>{
       spawnRandom();
-      lock = false;
+      lock=false;
       if(isDead()) gameOver('💀 Конец!');
-    }, 100);
-  }, 160); // slightly longer than CSS transition (150ms)
+    },100);
+  },140);
 }
 
 function isDead(){
@@ -499,10 +440,9 @@ function isDead(){
   return true;
 }
 
-/* ── undo ── */
 function undo(){
   if(dead||!hist.length||lock)return;
-  lock = true;
+  lock=true;
   const s=hist.pop();
   tiles.forEach(t=>t.el.remove());tiles.clear();
   grid=s.grid;score=s.score;bestBlock=s.bestBlock;moves=s.moves;
@@ -516,31 +456,29 @@ function undo(){
     tiles.set(c.id,{el,x,y});
   }));
   sUndo();
-  setTimeout(() => { lock = false; }, 50);
+  setTimeout(()=>{lock=false;},50);
 }
 
-/* ── end ── */
 function gameOver(title){
   dead=true;clearInterval(timerInt);sEnd();
-    // Отправка рекорда в Telegram
-  if(window.Telegram?.WebApp){
-    Telegram.WebApp.sendData(JSON.stringify({
-      game: "2048",
-      score: score,
-      best: Math.max(best, score)
-    }));
-  }
   if(score>best){best=score;localStorage.setItem('l48b',best);$('bst').textContent=best}
   $('otitle').textContent=title;$('os').textContent=score;$('ob').textContent=best;
   $('om').textContent=moves;$('ob2').textContent=bestBlock?Math.pow(2,bestBlock):'—';
   $('over').style.display='flex';
+  // Отправка рекорда в Telegram
+  if(window.Telegram?.WebApp){
+    Telegram.WebApp.sendData(JSON.stringify({
+      game:"2048",
+      score:score,
+      best:Math.max(best,score)
+    }));
+  }
 }
 function restart(){clearInterval(timerInt);init()}
 function share(){
   window.open('https://t.me/share/url?url=https://t.me/Lolych_bot&text='+encodeURIComponent(`🎮 Лолыч 2048! Счёт: ${score} (рекорд: ${best}). Играй: @Lolych_bot`));
 }
 
-/* ── timer / mode / skin ── */
 function startTimer(){
   clearInterval(timerInt);
   timerInt=setInterval(()=>{
@@ -554,7 +492,6 @@ function setMode(m){
 }
 function setSkin(s){document.body.className=s;localStorage.setItem('l48s',s)}
 
-/* ── input ── */
 $('bu').addEventListener('click',()=>doMove(3));
 $('bd').addEventListener('click',()=>doMove(1));
 $('bl').addEventListener('click',()=>doMove(0));
@@ -576,11 +513,9 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo()}
 });
 
-/* ── bg cells ── */
 const bgEl=$('bg');
 for(let i=0;i<16;i++){const c=document.createElement('div');c.className='bc';bgEl.appendChild(c)}
 
-/* ── boot ── */
 setSkin(localStorage.getItem('l48s')||'');
 init();
 </script>

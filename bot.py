@@ -37,19 +37,8 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 DONATE_URL = "https://dalink.to/trolololych"
 ADMIN_ID = 757006911
 
-GAME_2048 = {
-    "name": "🔢 Лолыч 2048",
-    "url": "https://lilfridge.github.io/lolych/games/2048.html",
-    "webapp_url": "https://t.me/Lolych_bot/lolych2048",
-    "desc": "Собери 2048"
-}
-
-GAME_BLOCKBLAST = {
-    "name": "🧊 Лолыч Бласт",
-    "url": "https://lilfridge.github.io/lolych/games/blockblast.html",
-    "webapp_url": "https://t.me/Lolych_bot/lolychblast",
-    "desc": "Разбивай блоки"
-}
+GAME_2048_URL = "https://t.me/Lolych_bot/lolych2048"
+GAME_BLOCKBLAST_URL = "https://t.me/Lolych_bot/lolychblast"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -133,123 +122,32 @@ KOGDA_ANSWERS = [
 
 TEMPLATES_DIR = "templates"
 PHOTO_TEMPLATES = {
-    "IMG_4862.jpeg": {
-        "photos": [{"x": 59, "y": 246, "w": 847, "h": 964}],
-        "texts": [],
-    },
-    "IMG_4864.jpeg": {
-        "photos": [{"x": 608, "y": 650, "w": 577, "h": 384}],
-        "texts": [],
-    },
-    "IMG_4867.jpeg": {
-        "photos": [
-            {"x": 572, "y": 257, "w": 200, "h": 200},
-            {"x": 138, "y": 510, "w": 200, "h": 200},
-            {"x": 907, "y": 552, "w": 200, "h": 200},
-        ],
-        "texts": [],
-    },
-    "IMG_4868.jpeg": {
-        "photos": [
-            {"x": 570, "y": 0, "w": 636, "h": 546},
-            {"x": 570, "y": 551, "w": 636, "h": 549},
-        ],
-        "texts": [],
-    },
-    "IMG_4869.jpeg": {
-        "photos": [
-            {"x": 203, "y": 70, "w": 800, "h": 465},
-            {"x": 203, "y": 670, "w": 800, "h": 400},
-        ],
-        "texts": [],
-    },
-    "IMG_4870.jpeg": {
-        "photos": [{"x": 0, "y": 0, "w": 1206, "h": 612}],
-        "texts": [],
-    },
-    "IMG_4871.jpeg": {
-        "photos": [{"x": 0, "y": 832, "w": 1206, "h": 413}],
-        "texts": [],
-    },
-    "IMG_4873.jpeg": {
-        "photos": [
-            {"x": 0, "y": 0, "w": 595, "h": 500},
-            {"x": 595, "y": 0, "w": 595, "h": 500},
-        ],
-        "texts": [],
-    },
-    "IMG_4837.jpeg": {
-        "photos": [{"x": 348, "y": 21, "w": 323, "h": 323}],
-        "texts": [],
-    },
-    "IMG_4838.JPG": {
-        "photos": [{"x": 601, "y": 3, "w": 595, "h": 595}, {"x": 601, "y": 601, "w": 595, "h": 595}],
-        "texts": [],
-    },
-    "IMG_4841.JPG": {
-        "photos": [{"x": 6, "y": 6, "w": 589, "h": 589}, {"x": 6, "y": 603, "w": 590, "h": 591}],
-        "texts": [],
-    },
-    "IMG_4842.jpg": {
-        "photos": [{"x": 0, "y": 0, "w": 620, "h": 836}],
-        "texts": [],
-    },
-    "IMG_4843.jpg": {
-        "photos": [{"x": 12, "y": 388, "w": 504, "h": 504}],
-        "texts": [],
-    },
-    "IMG_4844.jpg": {
-        "photos": [{"x": 13, "y": 542, "w": 1184, "h": 646}],
-        "texts": [],
-    },
-    "IMG_4845.jpg": {
-        "photos": [{"x": 0, "y": 0, "w": 1206, "h": 991}],
-        "texts": [],
-    },
-    "IMG_4846.jpg": {
-        "photos": [{"x": 0, "y": 193, "w": 1206, "h": 774}],
-        "texts": [],
-    },
-    "IMG_4847.jpg": {
-        "photos": [{"x": 0, "y": 264, "w": 1206, "h": 735}],
-        "texts": [],
-    },
-    "IMG_4848.jpg": {
-        "photos": [{"x": 0, "y": 175, "w": 1206, "h": 1019}],
-        "texts": [],
-    },
-    "IMG_4849.jpg": {
-        "photos": [{"x": 410, "y": 1097, "w": 419, "h": 452}],
-        "texts": [],
-    },
-    "IMG_4850.jpg": {
-        "photos": [{"x": 113, "y": 198, "w": 333, "h": 392}],
-        "texts": [],
-    },
-    "IMG_4851.jpg": {
-        "photos": [{"x": 683, "y": 587, "w": 500, "h": 500}],
-        "texts": [],
-    },
-    "IMG_4852.jpg": {
-        "photos": [{"x": 0, "y": 481, "w": 585, "h": 423}],
-        "texts": [],
-    },
-    "IMG_4856.jpg": {
-        "photos": [{"x": 79, "y": 369, "w": 1000, "h": 687}],
-        "texts": [],
-    },
-    "IMG_4857.jpg": {
-        "photos": [{"x": 54, "y": 200, "w": 1109, "h": 1109}],
-        "texts": [],
-    },
-    "IMG_4858.jpg": {
-        "photos": [{"x": 430, "y": 450, "w": 441, "h": 294}],
-        "texts": [],
-    },
-    "IMG_4860.JPG": {
-        "photos": [{"x": 607, "y": 0, "w": 599, "h": 465}, {"x": 607, "y": 473, "w": 599, "h": 471}],
-        "texts": [],
-    },
+    "IMG_4862.jpeg": {"photos": [{"x": 59, "y": 246, "w": 847, "h": 964}], "texts": []},
+    "IMG_4864.jpeg": {"photos": [{"x": 608, "y": 650, "w": 577, "h": 384}], "texts": []},
+    "IMG_4867.jpeg": {"photos": [{"x": 572, "y": 257, "w": 200, "h": 200}, {"x": 138, "y": 510, "w": 200, "h": 200}, {"x": 907, "y": 552, "w": 200, "h": 200}], "texts": []},
+    "IMG_4868.jpeg": {"photos": [{"x": 570, "y": 0, "w": 636, "h": 546}, {"x": 570, "y": 551, "w": 636, "h": 549}], "texts": []},
+    "IMG_4869.jpeg": {"photos": [{"x": 203, "y": 70, "w": 800, "h": 465}, {"x": 203, "y": 670, "w": 800, "h": 400}], "texts": []},
+    "IMG_4870.jpeg": {"photos": [{"x": 0, "y": 0, "w": 1206, "h": 612}], "texts": []},
+    "IMG_4871.jpeg": {"photos": [{"x": 0, "y": 832, "w": 1206, "h": 413}], "texts": []},
+    "IMG_4873.jpeg": {"photos": [{"x": 0, "y": 0, "w": 595, "h": 500}, {"x": 595, "y": 0, "w": 595, "h": 500}], "texts": []},
+    "IMG_4837.jpeg": {"photos": [{"x": 348, "y": 21, "w": 323, "h": 323}], "texts": []},
+    "IMG_4838.JPG": {"photos": [{"x": 601, "y": 3, "w": 595, "h": 595}, {"x": 601, "y": 601, "w": 595, "h": 595}], "texts": []},
+    "IMG_4841.JPG": {"photos": [{"x": 6, "y": 6, "w": 589, "h": 589}, {"x": 6, "y": 603, "w": 590, "h": 591}], "texts": []},
+    "IMG_4842.jpg": {"photos": [{"x": 0, "y": 0, "w": 620, "h": 836}], "texts": []},
+    "IMG_4843.jpg": {"photos": [{"x": 12, "y": 388, "w": 504, "h": 504}], "texts": []},
+    "IMG_4844.jpg": {"photos": [{"x": 13, "y": 542, "w": 1184, "h": 646}], "texts": []},
+    "IMG_4845.jpg": {"photos": [{"x": 0, "y": 0, "w": 1206, "h": 991}], "texts": []},
+    "IMG_4846.jpg": {"photos": [{"x": 0, "y": 193, "w": 1206, "h": 774}], "texts": []},
+    "IMG_4847.jpg": {"photos": [{"x": 0, "y": 264, "w": 1206, "h": 735}], "texts": []},
+    "IMG_4848.jpg": {"photos": [{"x": 0, "y": 175, "w": 1206, "h": 1019}], "texts": []},
+    "IMG_4849.jpg": {"photos": [{"x": 410, "y": 1097, "w": 419, "h": 452}], "texts": []},
+    "IMG_4850.jpg": {"photos": [{"x": 113, "y": 198, "w": 333, "h": 392}], "texts": []},
+    "IMG_4851.jpg": {"photos": [{"x": 683, "y": 587, "w": 500, "h": 500}], "texts": []},
+    "IMG_4852.jpg": {"photos": [{"x": 0, "y": 481, "w": 585, "h": 423}], "texts": []},
+    "IMG_4856.jpg": {"photos": [{"x": 79, "y": 369, "w": 1000, "h": 687}], "texts": []},
+    "IMG_4857.jpg": {"photos": [{"x": 54, "y": 200, "w": 1109, "h": 1109}], "texts": []},
+    "IMG_4858.jpg": {"photos": [{"x": 430, "y": 450, "w": 441, "h": 294}], "texts": []},
+    "IMG_4860.JPG": {"photos": [{"x": 607, "y": 0, "w": 599, "h": 465}, {"x": 607, "y": 473, "w": 599, "h": 471}], "texts": []},
 }
 
 def _chat_file(chat_id, name): return f"chat_{chat_id}_{name}"
@@ -261,7 +159,6 @@ MAX_CHAT_STICKERS = 100
 _clear_confirm = {}
 _clear_category = {}
 _gif_mode = {}
-_started_chats = set()
 
 def _load(chat_id, key):
     cache_key = f"{chat_id}_{key}"
@@ -407,31 +304,25 @@ def mix_messages(chat_id):
     if not os.path.exists(path): return random.choice(EMPTY_PHRASES)
     with open(path, "r", encoding="utf-8") as f: msgs = json.load(f)
     if len(msgs) < 2: return random.choice(EMPTY_PHRASES)
-    
     recent = msgs[-100:]
     msg1 = random.choice(recent)
     msg2 = random.choice(recent)
     while msg2 == msg1 and len(recent) > 1:
         msg2 = random.choice(recent)
-    
     words1 = msg1.split()
     words2 = msg2.split()
-    
     if len(words1) < 3 and len(words2) < 3:
         return absurd_word_salad(chat_id)
-    
     if len(words1) >= 3:
         cut1 = random.randint(2, len(words1) - 1)
         part1 = words1[:cut1]
     else:
         part1 = words1
-    
     if len(words2) >= 3:
         cut2 = random.randint(1, len(words2) - 2)
         part2 = words2[cut2:]
     else:
         part2 = words2
-    
     return " ".join(part1 + part2)
 
 def send_random_poll(bot_instance, chat_id):
@@ -448,17 +339,13 @@ def send_random_poll(bot_instance, chat_id):
 def make_photo_meme(chat_id):
     photos = get_photos(chat_id)
     if not photos: return None
-
     available = [t for t in PHOTO_TEMPLATES if os.path.exists(os.path.join(TEMPLATES_DIR, t))]
     if not available: return None
-
     template_name = random.choice(available)
     template_data = PHOTO_TEMPLATES[template_name]
     template_path = os.path.join(TEMPLATES_DIR, template_name)
-
     try:
         template = Image.open(template_path).convert("RGBA")
-
         for slot in template_data.get("photos", []):
             fid = random.choice(photos)
             fi = bot.get_file(fid)
@@ -466,7 +353,6 @@ def make_photo_meme(chat_id):
             photo = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
             photo = photo.resize((slot["w"], slot["h"]), Image.LANCZOS)
             template.paste(photo, (slot["x"], slot["y"]), photo)
-
         out = io.BytesIO()
         template.convert("RGB").save(out, format="JPEG", quality=90)
         out.seek(0)
@@ -618,46 +504,19 @@ def main_menu(cid):
 📚 Сообщений: {len(msgs)}
 🖼 Фото: {len(photos)} · 🎨 Стикеров: {len(_chat_stickers)}"""
     
-    markup = InlineKeyboardMarkup(row_width=2)
+    markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
         InlineKeyboardButton("😂 Развлечения", callback_data="menu_fun"),
-        InlineKeyboardButton("🎮 Игры", callback_data="menu_games")
+        InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params")
     )
-    markup.add(InlineKeyboardButton("⚙️ Параметры", callback_data="menu_params"))
-    markup.add(InlineKeyboardButton("🎮 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048["webapp_url"])))
-    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST["webapp_url"])))
+    markup.add(InlineKeyboardButton("🔢 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048_URL)))
+    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST_URL)))
     markup.add(InlineKeyboardButton("☕ Донат", url=DONATE_URL))
-    return txt, markup
-
-def games_menu():
-    txt = f"""🕹️ <b>Мини-игры</b>
-
-🎮 Играй прямо в Telegram! Игры открываются как мини-приложения.
-
-🔢 <b>{GAME_2048['name']}</b>
-📝 {GAME_2048['desc']}
-
-🧊 <b>{GAME_BLOCKBLAST['name']}</b>
-📝 {GAME_BLOCKBLAST['desc']}
-
-👆 Нажми на кнопку ниже, чтобы запустить игру прямо в Telegram."""
-    
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton(
-        f"🎮 {GAME_2048['name']}",
-        web_app=WebAppInfo(url=GAME_2048["webapp_url"])
-    ))
-    markup.add(InlineKeyboardButton(
-        f"🎮 {GAME_BLOCKBLAST['name']}",
-        web_app=WebAppInfo(url=GAME_BLOCKBLAST["webapp_url"])
-    ))
-    markup.add(InlineKeyboardButton("⬅ Назад в меню", callback_data="menu_back"))
     return txt, markup
 
 def fun_menu(page=1):
     if page == 1:
         txt = """🎪 <b>Тут мои таланты</b>
-
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🖼 Мем", callback_data="meme"), InlineKeyboardButton("😔 Демотиватор", callback_data="dem"))
@@ -665,7 +524,6 @@ def fun_menu(page=1):
         markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"), InlineKeyboardButton("➡️ Дальше", callback_data="menu_fun_page2"))
     else:
         txt = """🎪 <b>Тут мои таланты</b>
-
 Не обращайте внимания, я просто рофлю 🥶"""
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("🎬 Гифка", callback_data="gif"), InlineKeyboardButton("💬 Микс", callback_data="mix"))
@@ -676,9 +534,7 @@ def fun_menu(page=1):
 def params_menu(cid):
     no_mat = is_no_mat(cid); muted = is_muted(cid)
     txt = """⚙️ <b>Параметры</b>
-
 Здесь командуешь ты 👑"""
-    
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton(f"{'✅ Бот включен' if not muted else '🔇 Бот выключен'}", callback_data="toggle_mute"),
@@ -692,12 +548,9 @@ def activity_menu(cid):
     lv = get_level(cid)
     no_mat = is_no_mat(cid)
     lv_name = {1: "молчун", 2: "редко", 3: "часто"}[lv]
-    
     txt = f"""⭐ <b>Активность</b>
-
 Уровень: {lv} ({lv_name})
 Мат: {'✅ разрешён' if not no_mat else '🚫 запрещён'}"""
-    
     markup = InlineKeyboardMarkup(row_width=3)
     emoji_map = {1: "😴", 2: "🤙", 3: "🔥"}
     btns = []
@@ -750,11 +603,6 @@ def cmd_start(message):
     cid = message.chat.id
     for d in [_gif_mode]:
         d[cid] = False
-    
-    if cid not in _started_chats:
-        _started_chats.add(cid)
-        bot.send_message(cid, f"🤖 <b>Добавь меня в свой чат:</b> @Lolych_bot\n☕ <a href='{DONATE_URL}'>Поддержать бота</a>", parse_mode="HTML")
-    
     txt, markup = main_menu(cid)
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
@@ -768,12 +616,6 @@ def cmd_fun(message):
 def cmd_params(message):
     cid = message.chat.id
     txt, markup = params_menu(cid)
-    bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
-
-@bot.message_handler(commands=["games"])
-def cmd_games(message):
-    cid = message.chat.id
-    txt, markup = games_menu()
     bot.send_message(cid, txt, reply_markup=markup, parse_mode="HTML")
 
 @bot.message_handler(commands=["admin"])
@@ -816,33 +658,6 @@ def cmd_admin(message):
     
     bot.reply_to(message, txt, parse_mode="HTML")
 
-@bot.message_handler(content_types=["web_app_data"])
-def handle_webapp_data(message):
-    try:
-        data = json.loads(message.web_app_data.data)
-        game = data.get("game", "")
-        score = data.get("score", 0)
-        best = data.get("best", 0)
-        user = message.from_user.first_name or "Аноним"
-        
-        game_names = {
-            "blockblast": "🧊 Лолыч Бласт",
-            "2048": "🔢 Лолыч 2048",
-            "stack": "🃏 Лолыч Тауэр"
-        }
-        
-        game_name = game_names.get(game, "игре")
-        
-        if score >= best and score > 0:
-            text = f"🏆 {user} набрал {score} очков в {game_name}!\nЭто новый рекорд!"
-        else:
-            text = f"🎮 {user} набрал {score} очков в {game_name}!\nРекорд: {best}"
-        
-        bot.send_message(message.chat.id, text)
-    except Exception as e:
-        log.error(f"WebApp data error: {e}")
-        pass
-
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
     bot.answer_callback_query(call.id)
@@ -856,7 +671,6 @@ def handle_buttons(call):
         "menu_fun_page1": fun_menu(1),
         "menu_params": params_menu(cid),
         "menu_activity": activity_menu(cid),
-        "menu_games": games_menu(),
     }
     
     if call.data in nav:
