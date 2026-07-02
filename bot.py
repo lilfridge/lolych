@@ -693,10 +693,16 @@ def handle_buttons(call):
         else:
             txt, markup = nav[call.data]
 
-        # Игры — удаляем старое меню, отправляем новое (WebApp не работает в edit)
+        # Игры — удаляем старое меню, отправляем новое
         if call.data == "menu_games":
-            bot.delete_message(cid, mid)
-            bot.send_message(cid, txt, reply_markup=markup)
+            try:
+                bot.delete_message(cid, mid)
+                txt, markup = games_menu()
+                sent = bot.send_message(cid, txt, reply_markup=markup)
+                log.info(f"Games menu sent: {sent.message_id}")
+            except Exception as e:
+                log.error(f"Games menu error: {e}")
+                bot.send_message(cid, f"Ошибка: {e}")
         else:
             bot.edit_message_text(txt, cid, mid, reply_markup=markup)
         return
