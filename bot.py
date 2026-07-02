@@ -12,7 +12,7 @@ try:
 except: pass
 
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import markovify
 import random
 import threading
@@ -37,8 +37,8 @@ IMGFLIP_PASS = os.environ.get("IMGFLIP_PASS")
 DONATE_URL = "https://dalink.to/trolololych"
 ADMIN_ID = 757006911
 
-GAME_2048_WEBAPP = "https://t.me/Lolych_bot/lolych2048"
-GAME_BLOCKBLAST_WEBAPP = "https://t.me/Lolych_bot/lolychblast"
+GAME_2048_LINK = "https://t.me/Lolych_bot/lolych2048"
+GAME_BLOCKBLAST_LINK = "https://t.me/Lolych_bot/lolychblast"
 
 LIMITS = {"messages": 5000, "user_msgs": 700, "photos": 200}
 
@@ -517,8 +517,8 @@ def main_menu(cid):
 def games_menu():
     txt = "🕹️ Мини-игры\n\n🎮 Игры открываются прямо в Telegram!"
     markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton("🔢 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048_WEBAPP)))
-    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST_WEBAPP)))
+    markup.add(InlineKeyboardButton("🔢 Лолыч 2048", url=GAME_2048_LINK))
+    markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", url=GAME_BLOCKBLAST_LINK))
     return txt, markup
 
 
@@ -693,7 +693,6 @@ def handle_buttons(call):
         else:
             txt, markup = nav[call.data]
 
-        # Игры — удаляем старое меню, отправляем новое
         if call.data == "menu_games":
             try:
                 bot.delete_message(cid, mid)
