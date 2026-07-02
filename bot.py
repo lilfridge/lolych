@@ -516,11 +516,9 @@ def main_menu(cid):
 
 def games_menu():
     txt = "🕹️ Мини-игры\n\n🎮 Игры открываются прямо в Telegram!"
-
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(InlineKeyboardButton("🔢 Лолыч 2048", web_app=WebAppInfo(url=GAME_2048_WEBAPP)))
     markup.add(InlineKeyboardButton("🧊 Лолыч Бласт", web_app=WebAppInfo(url=GAME_BLOCKBLAST_WEBAPP)))
-    markup.add(InlineKeyboardButton("⬅ Назад", callback_data="menu_back"))
     return txt, markup
 
 
@@ -694,8 +692,8 @@ def handle_buttons(call):
             txt, markup = fun_menu(2)
         else:
             txt, markup = nav[call.data]
-        
-        # WebApp кнопки не работают в edit_message_text — отправляем новое сообщение
+
+        # Игры — удаляем старое меню, отправляем новое (WebApp не работает в edit)
         if call.data == "menu_games":
             bot.delete_message(cid, mid)
             bot.send_message(cid, txt, reply_markup=markup)
