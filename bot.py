@@ -694,7 +694,13 @@ def handle_buttons(call):
             txt, markup = fun_menu(2)
         else:
             txt, markup = nav[call.data]
-        bot.edit_message_text(txt, cid, mid, reply_markup=markup)
+        
+        # WebApp кнопки не работают в edit_message_text — отправляем новое сообщение
+        if call.data == "menu_games":
+            bot.delete_message(cid, mid)
+            bot.send_message(cid, txt, reply_markup=markup)
+        else:
+            bot.edit_message_text(txt, cid, mid, reply_markup=markup)
         return
 
     if call.data == "gif":
